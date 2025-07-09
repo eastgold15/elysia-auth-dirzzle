@@ -170,6 +170,20 @@ Change:
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+## v1.1.26
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.25...v1.1.26)
+
+### 🏡 Chore
+
+- **release:** V1.1.6 ([bc5fe59](https://github.com/eastgold15/elysia-auth-dirzzle/commit/bc5fe59))
+- **release:** V1.1.7 ([291fa3d](https://github.com/eastgold15/elysia-auth-dirzzle/commit/291fa3d))
+- **release:** V1.1.14 ([2616b60](https://github.com/eastgold15/elysia-auth-dirzzle/commit/2616b60))
+
+### ❤️ Contributors
+
+- 田正东 <1960825664@qq.com>
+
 ## v1.1.14
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.7...v1.1.14)
