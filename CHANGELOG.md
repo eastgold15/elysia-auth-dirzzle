@@ -162,3 +162,19 @@ Change:
 Change:
 - Support for KingWorld 0.0.0-experimental.28 onward
 - chore: update dependencies
+
+## v1.1.1
+
+
+### 🚀 Enhancements
+
+- 添加Elysia认证插件与Drizzle ORM集成 (0b11b8a)
+
+### 💅 Refactors
+
+- **构建系统:** 重构构建配置并优化测试 (b99a2a5)
+
+### ❤️ Contributors
+
+- 田正东 <1960825664@qq.com>
+
