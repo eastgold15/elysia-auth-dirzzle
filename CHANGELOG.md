@@ -164,10 +164,32 @@ Change:
 - chore: update dependencies
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 ## v1.1.14
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.7...v1.1.14)
+=======
+## v1.1.18
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.17...v1.1.18)
+
+## v1.1.17
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.16...v1.1.17)
+
+## v1.1.16
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.15...v1.1.16)
+
+## v1.1.15
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.14...v1.1.15)
+
+## v1.1.14
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.13...v1.1.14)
+>>>>>>> 555008766942d07d3a836499da5093dbaeb5faf0
 
 ## v1.1.13
 

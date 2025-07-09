@@ -1,11 +1,6 @@
 name: Release with Changelogen
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       release_type:
