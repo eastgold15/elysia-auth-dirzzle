@@ -1,6 +1,6 @@
 {
     "name": "@pori15/elysia-auth-drizzle",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "type": "module",
     "license": "MIT",
     "scripts": {
@@ -13,7 +13,7 @@
         "release:patch": "npx changelogen@latest --patch --release --push",
         "release:minor": "npx changelogen@latest --minor --release --push",
         "release:major": "npx changelogen@latest --major --release --push",
-        "release:publish": "npx changelogen@latest --patch --release --push --publish"
+        "release:publish": "bunx changelogen@latest --patch --release --push --publish"
     },
     "types": "./dist/types/index.d.ts",
     "files": [
