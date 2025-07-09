@@ -1,6 +1,11 @@
 name: Release with Changelogen
 
 on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       release_type:
@@ -12,7 +17,7 @@ on:
           - patch
           - minor
           - major
-
+if: contains(github.ref, 'refs/tags/')
 jobs:
   release:
     runs-on: ubuntu-latest
