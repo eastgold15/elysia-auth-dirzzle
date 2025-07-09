@@ -163,6 +163,10 @@ Change:
 - Support for KingWorld 0.0.0-experimental.28 onward
 - chore: update dependencies
 
+## v1.1.24
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.23...v1.1.24)
+
 ## v1.1.23
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.22...v1.1.23)
