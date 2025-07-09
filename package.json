@@ -1,0 +1,61 @@
+{
+    "name": "@pori15/elysia-auth-drizzle",
+    "version": "1.1.0",
+    "type": "module",
+    "license": "MIT",
+    "scripts": {
+        "dev": "bun run --hot example/index.ts",
+        "test": "bun test && npm run test:node",
+        "test:node": "npm install --prefix ./test/node/cjs/ && npm install --prefix ./test/node/esm/ && node ./test/node/cjs/index.js && node ./test/node/esm/index.js",
+        "build": "rolldown -c rolldown.config.ts",
+        "build:old": "bun build.ts",
+        "release": " npm publish --access public"
+    },
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "package.json"
+    ],
+    "module": "./dist/index.mjs",
+    "exports": {
+        "./package.json": "./package.json",
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs"
+        }
+    },
+    "dependencies": {
+        "@bogeychan/elysia-logger": "^0.1.4",
+        "jsonwebtoken": "^9.0.2",
+        "drizzle-kit": "^0.31.0",
+        "drizzle-orm": "^0.44.0",
+        "unify-errors": "^1.2.227"
+    },
+    "devDependencies": {
+        "@elysiajs/eden": "^1.1.3",
+        "@types/bun": "1.1.14",
+        "@types/jsonwebtoken": "^9.0.6",
+        "bun-types": "latest",
+        "dotenv": "^17.0.1",
+        "elysia": "1.3.0-exp.46",
+        "pg": "^8.11.3",
+        "postgres": "^3.4.4",
+        "rolldown": "^1.0.0-beta.24",
+        "rolldown-plugin-dts": "^0.13.13",
+        "tsup": "^8.1.0",
+        "typescript": "^5.5.3",
+        "unify-elysia": "^1.1.15"
+    },
+    "peerDependencies": {
+        "elysia": ">= 1.3.0",
+        "drizzle-orm": ">= 0.30.0"
+    },
+    "keywords": [
+        "elysia",
+        "auth",
+        "authentication",
+        "drizzle",
+        "jwt"
+    ],
+    "description": "Authentication plugin for Elysia using Drizzle ORM"
+}

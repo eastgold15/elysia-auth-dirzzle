@@ -1,0 +1,20 @@
+{
+  "name": "example2",
+  "version": "1.0.50",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts",
+    "test-package": "bun run src/test-package.ts"
+  },
+  "dependencies": {
+    "@pori15/elysia-auth-drizzle": "^1.0.0",
+    "drizzle-orm": "^0.44.0",
+    "elysia": "latest",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "@types/jsonwebtoken": "^9.0.6"
+  },
+  "module": "src/index.js"
+}
