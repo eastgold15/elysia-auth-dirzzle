@@ -17,10 +17,11 @@ on:
           - patch
           - minor
           - major
-if: "startsWith(github.ref, 'refs/tags/')"
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: "startsWith(github.ref, 'refs/tags/')"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
