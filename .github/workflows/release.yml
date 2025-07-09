@@ -17,7 +17,7 @@ on:
           - patch
           - minor
           - major
-if: contains(github.ref, 'refs/tags/')
+if: "startsWith(github.ref, 'refs/tags/')"
 jobs:
   release:
     runs-on: ubuntu-latest
