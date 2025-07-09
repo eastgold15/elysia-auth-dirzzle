@@ -1,6 +1,5 @@
 {
-    "type": "commonjs",
-    "dependencies": {
-        "@elysiajs/static": "../../.."
-    }
+  "dependencies": {
+    "@pori15/elysia-auth-drizzle": "file:../../.."
+  }
 }

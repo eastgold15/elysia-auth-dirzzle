@@ -17,13 +17,11 @@ const esmConfig = defineConfig({
   input: 'src/index.ts',
   // ESM 输出配置
   output: {
+    dir: 'dist',
     format: 'esm',
+    entryFileNames: 'index.mjs', // 自定义输出文件名
     sourcemap: false,
-    inlineDynamicImports: true
   },
-  plugins: [dts()],
-
-
   // 外部依赖 - 不打包进最终文件
   external: [
     // Elysia 相关
@@ -59,45 +57,45 @@ const esmConfig = defineConfig({
 });
 
 
-// // TypeScript 声明文件配置
-// const dtsConfig = defineConfig({
-//   input: 'src/index.ts',
-//   output: {
-//     format: 'esm',
-//     dir: 'dist/types/',
-//     inlineDynamicImports: true
-//   },
-//   plugins: [dts()],
-//   external: [
-//     // Elysia 相关
-//     'elysia',
-//     '@elysiajs/cookie',
-//     '@elysiajs/jwt',
+// TypeScript 声明文件配置
+const dtsConfig = defineConfig({
+  input: 'src/index.ts',
+  output: {
+    dir: 'dist/types',
+    format: 'esm',
+  },
+  plugins: [dts()],
+  external: [
+    // Elysia 相关
+    'elysia',
+    '@elysiajs/cookie',
+    '@elysiajs/jwt',
 
-//     // Drizzle ORM 相关
-//     'drizzle-orm',
-//     'drizzle-orm/pg-core',
-//     'drizzle-orm/mysql-core',
-//     'drizzle-orm/sqlite-core',
+    // Drizzle ORM 相关
+    'drizzle-orm',
+    'drizzle-orm/pg-core',
+    'drizzle-orm/mysql-core',
+    'drizzle-orm/sqlite-core',
 
-//     // 依赖包
-//     'jsonwebtoken',
-//     '@bogeychan/elysia-logger',
-//     'unify-errors',
+    // 依赖包
+    'jsonwebtoken',
+    '@bogeychan/elysia-logger',
+    'unify-errors',
 
-//     // Node.js 内置模块
-//     'crypto',
-//     'util',
-//     'path',
-//     'fs',
-//     'stream',
-//     'buffer',
+    // Node.js 内置模块
+    'crypto',
+    'util',
+    'path',
+    'fs',
+    'stream',
+    'buffer',
 
-//     // 其他可能的依赖
-//     /^node:/,  // Node.js 内置模块的新格式
-//   ],
-// });
+    // 其他可能的依赖
+    /^node:/,  // Node.js 内置模块的新格式
+  ],
+  treeshake: true
+});
 
-// 导出多个配置：ESM、CommonJS 和类型声明文件
-export default esmConfig
+// 导出多个配置：ESM 和类型声明文件
+export default [esmConfig, dtsConfig];
 

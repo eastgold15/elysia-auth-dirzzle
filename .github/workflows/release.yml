@@ -1,0 +1,56 @@
+name: Release with Changelogen
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GIT_TOKEN }}
+          ref: main  # 明确指定检出main分支
+
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --no-frozen-lockfile
+
+      - name: Install changelogen
+        run: bun add -D changelogen
+
+      - name: Build
+        run: bun run build
+
+      - name: Run tests
+        run: bun test
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "1960825664@qq.com"
+          git config --local user.name "pori"
+
+      - name: Release
+        run: |
+          RELEASE_TYPE=${{ github.event.inputs.release_type || 'patch' }}
+          bun run release:$RELEASE_TYPE
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}

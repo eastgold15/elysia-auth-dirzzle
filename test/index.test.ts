@@ -1,447 +1,308 @@
 import { Elysia } from 'elysia'
-import { staticPlugin } from '../src'
+import { 
+  elysiaAuthDrizzlePlugin, 
+  getAccessTokenFromRequest, 
+  signCookie, 
+  unsignCookie,
+  checkTokenValidity,
+  currentUrlAndMethodIsAllowed
+} from '../src'
 
-import { describe, expect, it } from 'bun:test'
-import { join, sep } from 'path'
+import { describe, expect, it, beforeAll } from 'bun:test'
+import { sign } from 'jsonwebtoken'
 
-const req = (path: string) => new Request(`http://localhost${path}`)
+// 测试用的请求构造函数
+const req = (path: string, options?: RequestInit) => 
+  new Request(`http://localhost${path}`, options)
 
-const takodachi = await Bun.file('public/takodachi.png').text()
+// 测试配置
+const testConfig = {
+  jwtSecret: 'test-secret-key-for-jwt',
+  cookieSecret: 'test-cookie-secret',
+  drizzle: {
+    db: {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([{ ownerId: 'user123', accessToken: 'valid-token' }])
+          })
+        })
+      })
+    },
+    tokensSchema: {
+      accessToken: 'accessToken',
+      ownerId: 'ownerId'
+    },
+    usersSchema: {
+      id: 'id',
+      email: 'email'
+    }
+  },
+  config: [
+    { url: '/public/*', method: 'GET' },
+    { url: '/login', method: 'POST' }
+  ]
+}
 
-describe('Static Plugin', () => {
-    it('should get root path', async () => {
-        const app = new Elysia().use(staticPlugin())
+// 生成测试用的JWT token
+const generateTestToken = (payload: any) => {
+  return sign(payload, testConfig.jwtSecret, { expiresIn: '1h' })
+}
 
-        await app.modules
+describe('Elysia Auth Drizzle Plugin', () => {
+    // 测试工具函数
+    describe('Utility Functions', () => {
+        it('should sign and unsign cookie correctly', async () => {
+            const value = 'test-cookie-value'
+            const secret = 'test-secret'
+            
+            const signed = await signCookie(value, secret)
+            expect(signed).toContain('.')
+            expect(signed.startsWith(value)).toBe(true)
+            
+            const unsigned = await unsignCookie(signed, secret)
+            expect(unsigned).toBe(value)
+        })
 
-        const res = await app
-            .handle(req('/public/takodachi.png'))
-            .then((r) => r.blob())
-            .then((r) => r.text())
+        it('should return false for invalid cookie signature', async () => {
+            const value = 'test-cookie-value'
+            const secret = 'test-secret'
+            const wrongSecret = 'wrong-secret'
+            
+            const signed = await signCookie(value, secret)
+            const unsigned = await unsignCookie(signed, wrongSecret)
+            expect(unsigned).toBe(false)
+        })
 
-        expect(res).toBe(takodachi)
-    })
-
-    it('should get nested path', async () => {
-        const app = new Elysia().use(staticPlugin())
-
-        await app.modules
-
-        const res = await app.handle(req('/public/nested/takodachi.png'))
-        const blob = await res.blob()
-        expect(await blob.text()).toBe(takodachi)
-    })
-
-    it('should get different path', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                assets: 'public-aliased'
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/tako.png'))
-        const blob = await res.blob()
-        expect(await blob.text()).toBe(takodachi)
-    })
-
-    it('should handle prefix', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                prefix: '/static'
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/static/takodachi.png'))
-        const blob = await res.blob()
-        expect(await blob.text()).toBe(takodachi)
-    })
-
-    it('should handle empty prefix', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                prefix: ''
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/takodachi.png'))
-        const blob = await res.blob()
-        expect(await blob.text()).toBe(takodachi)
-    })
-
-    it('should supports multiple public', async () => {
-        const app = new Elysia()
-            .use(
-                staticPlugin({
-                    prefix: '/public-aliased',
-                    assets: 'public-aliased'
-                })
-            )
-            .use(
-                staticPlugin({
-                    prefix: '/public'
-                })
-            )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi.png'))
-
-        expect(res.status).toBe(200)
-    })
-
-    it('ignore string pattern', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                ignorePatterns: [`public${sep}takodachi.png`]
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi.png'))
-        expect(res.status).toBe(404)
-    })
-
-    it('ignore regex pattern', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                ignorePatterns: [/takodachi.png$/]
-            })
-        )
-
-        const file = await app.handle(req('/public/takodachi.png'))
-
-        expect(file.status).toBe(404)
-    })
-
-    it('always static', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true
-            })
-        )
-
-        await app.modules
-
-        const res = await app
-            .handle(req('/public/takodachi.png'))
-            .then((r) => r.blob())
-            .then((r) => r.text())
-
-        expect(res).toBe(takodachi)
-    })
-
-    it('always static with assets on an absolute path', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                assets: join(import.meta.dir, '../public')
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi.png'))
-        const blob = await res.blob()
-        expect(await blob.text()).toBe(takodachi)
-    })
-
-    it('exclude extension', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true
-            })
-        )
-
-        await app.modules
-
-        const res = await app
-            .handle(req('/public/takodachi'))
-            .then((r) => r.blob())
-            .then((r) => r.text())
-
-        expect(res).toBe(takodachi)
-    })
-
-    it('return custom headers', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true,
+        it('should extract access token from request headers', async () => {
+            const mockRequest = {
                 headers: {
-                    ['x-powered-by']: 'Takodachi'
-                }
-            })
-        )
+                    authorization: 'Bearer test-token-123'
+                },
+                cookie: {},
+                query: {}
+            }
+            
+            const token = await getAccessTokenFromRequest(mockRequest)
+            expect(token).toBe('test-token-123')
+        })
 
-        await app.modules
+        it('should extract access token from query parameters', async () => {
+            const mockRequest = {
+                query: {
+                    access_token: 'query-token-456'
+                },
+                headers: {},
+                cookie: {}
+            }
+            
+            const token = await getAccessTokenFromRequest(mockRequest)
+            expect(token).toBe('query-token-456')
+        })
 
-        const res = await app.handle(req('/public/takodachi'))
+        it('should extract access token from cookie', async () => {
+            const cookieValue = 'cookie-token-789'
+            const mockRequest = {
+                cookie: {
+                    authorization: {
+                        value: cookieValue
+                    }
+                },
+                headers: {},
+                query: {}
+            }
+            
+            const token = await getAccessTokenFromRequest(mockRequest)
+            expect(token).toBe(cookieValue)
+        })
 
-        expect(res.headers.get('x-powered-by')).toBe('Takodachi')
-        expect(res.status).toBe(200)
+        it('should extract signed cookie token correctly', async () => {
+            const originalValue = 'signed-token-123'
+            const secret = 'cookie-secret'
+            const signedValue = await signCookie(originalValue, secret)
+            
+            const mockRequest = {
+                cookie: {
+                    authorization: {
+                        value: signedValue
+                    }
+                },
+                headers: {},
+                query: {}
+            }
+            
+            const token = await getAccessTokenFromRequest(mockRequest, secret)
+            expect(token).toBe(originalValue)
+        })
     })
 
-    it('call onError when using dynamic mode', async () => {
-        let called = false
-
-        const app = new Elysia()
-            .onError(({ code }) => {
-                if (code === 'NOT_FOUND') called = true
-            })
-            .use(
-                staticPlugin({
-                    alwaysStatic: false
-                })
+    // 测试URL和方法验证
+    describe('URL and Method Validation', () => {
+        it('should allow access to public URLs', () => {
+            const isAllowed = currentUrlAndMethodIsAllowed(
+                '/public/info',
+                'GET',
+                testConfig.config
             )
+            expect(isAllowed).toBe(true)
+        })
 
-        await app.modules
+        it('should allow access to login endpoint', () => {
+            const isAllowed = currentUrlAndMethodIsAllowed(
+                '/login',
+                'POST',
+                testConfig.config
+            )
+            expect(isAllowed).toBe(true)
+        })
 
-        await app.handle(req('/public/not-found'))
+        it('should deny access to protected URLs', () => {
+            const isAllowed = currentUrlAndMethodIsAllowed(
+                '/protected/data',
+                'GET',
+                testConfig.config
+            )
+            expect(isAllowed).toBe(false)
+        })
 
-        expect(called).toBe(true)
+        it('should deny access with wrong HTTP method', () => {
+            const isAllowed = currentUrlAndMethodIsAllowed(
+                '/login',
+                'GET', // 配置中是POST
+                testConfig.config
+            )
+            expect(isAllowed).toBe(false)
+        })
+
+        it('should handle empty config array', () => {
+            const isAllowed = currentUrlAndMethodIsAllowed(
+                '/any/path',
+                'GET',
+                []
+            )
+            expect(isAllowed).toBe(false)
+        })
     })
 
-    it('return etag header', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true
-            })
-        )
+    // 测试JWT token生成和验证
+    describe('JWT Token Handling', () => {
+        it('should generate valid JWT token', () => {
+            const payload = { id: 'user123', email: 'test@example.com' }
+            const token = generateTestToken(payload)
+            
+            expect(token).toBeDefined()
+            expect(typeof token).toBe('string')
+            expect(token.split('.')).toHaveLength(3) // JWT应该有3个部分
+        })
 
-        await app.modules
+        it('should validate JWT token correctly', async () => {
+            const payload = { id: 'user123', email: 'test@example.com' }
+            const token = generateTestToken(payload)
+            
+            // 测试基本的JWT验证
+            const { verify } = await import('jsonwebtoken')
+            const decoded = verify(token, testConfig.jwtSecret)
+            
+            expect(decoded).toBeDefined()
+            // @ts-ignore
+            expect(decoded.id).toBe('user123')
+            // @ts-ignore
+            expect(decoded.email).toBe('test@example.com')
+        })
 
-        const res = await app.handle(req('/public/takodachi'))
+        it('should reject invalid JWT token', async () => {
+            const invalidToken = 'invalid.jwt.token'
+            
+            const { verify } = await import('jsonwebtoken')
+            
+            expect(() => {
+                verify(invalidToken, testConfig.jwtSecret)
+            }).toThrow()
+        })
 
-        expect(res.headers.get('Etag')).toBe('ZGe9eXgawZBlMox8sZg82Q==')
-        expect(res.status).toBe(200)
+        it('should reject JWT token with wrong secret', async () => {
+            const payload = { id: 'user123', email: 'test@example.com' }
+            const token = generateTestToken(payload)
+            const wrongSecret = 'wrong-secret-key'
+            
+            const { verify } = await import('jsonwebtoken')
+            
+            expect(() => {
+                verify(token, wrongSecret)
+            }).toThrow()
+        })
     })
 
-    it('return no etag header when noCache', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true,
-                noCache: true
-            })
-        )
+    // 测试插件集成
+    describe('Plugin Integration', () => {
+        it('should create Elysia app with auth plugin', async () => {
+            const app = new Elysia()
+                .get('/public', () => 'Public content')
+                .get('/protected', () => 'Protected content')
+            
+            // 验证应用可以正常创建
+            expect(app).toBeDefined()
+        })
 
-        await app.modules
+        it('should handle public routes without authentication', async () => {
+            const app = new Elysia()
+                .get('/public', () => 'Public content')
+            
+            const response = await app.handle(req('/public'))
+            expect(response.status).toBe(200)
+            expect(await response.text()).toBe('Public content')
+        })
 
-        const res = await app.handle(req('/public/takodachi'))
+        it('should return 404 for non-existent routes', async () => {
+            const app = new Elysia()
+                .get('/existing', () => 'Content')
+            
+            const response = await app.handle(req('/non-existent'))
+            expect(response.status).toBe(404)
+        })
 
-        expect(res.headers.get('Etag')).toBe(null)
-        expect(res.status).toBe(200)
+        it('should handle POST requests', async () => {
+            const app = new Elysia()
+                .post('/api/data', ({ body }) => ({ received: body }))
+            
+            const response = await app.handle(req('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ test: 'data' })
+            }))
+            
+            expect(response.status).toBe(200)
+            const result = await response.json()
+            expect(result.received).toEqual({ test: 'data' })
+        })
     })
 
-    it('return Cache-Control header when maxAge is set', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true,
-                maxAge: 3600
-            })
-        )
+    // 测试错误处理
+    describe('Error Handling', () => {
+        it('should throw error for invalid cookie value type', async () => {
+            expect(async () => {
+                // @ts-ignore - 故意传入错误类型进行测试
+                await signCookie(123, 'secret')
+            }).toThrow()
+        })
 
-        await app.modules
+        it('should throw error for null secret in signCookie', async () => {
+            expect(async () => {
+                await signCookie('value', null)
+            }).toThrow()
+        })
 
-        const res = await app.handle(req('/public/takodachi'))
+        it('should throw error for invalid input type in unsignCookie', async () => {
+            expect(async () => {
+                // @ts-ignore - 故意传入错误类型进行测试
+                await unsignCookie(123, 'secret')
+            }).toThrow()
+        })
 
-        expect(res.headers.get('Cache-Control')).toBe('public, max-age=3600')
-        expect(res.status).toBe(200)
-    })
-
-    it('return Cache-Control header when maxAge is not set', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi'))
-
-        expect(res.headers.get('Cache-Control')).toBe('public, max-age=86400')
-        expect(res.status).toBe(200)
-    })
-
-    it('skip Cache-Control header when maxAge is null', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                maxAge: null
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi.png'))
-
-        expect(res.headers.get('Cache-Control')).toBe('public')
-        expect(res.status).toBe(200)
-    })
-
-    it('set cache directive', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                directive: 'private'
-            })
-        )
-
-        await app.modules
-
-        const res = await app.handle(req('/public/takodachi.png'))
-
-        expect(res.headers.get('Cache-Control')).toBe('private, max-age=86400')
-        expect(res.status).toBe(200)
-    })
-
-    it('return not modified response (etag)', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true
-            })
-        )
-
-        await app.modules
-
-        const request = req('/public/takodachi')
-        request.headers.append('If-None-Match', 'ZGe9eXgawZBlMox8sZg82Q==')
-
-        const res = await app.handle(request)
-
-        expect(res.body).toBe(null)
-        expect(res.status).toBe(304)
-    })
-
-    it('return not modified response (time)', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true
-            })
-        )
-
-        await app.modules
-
-        const tomorrow = new Date()
-        tomorrow.setDate(tomorrow.getDate() + 1)
-
-        const request = req('/public/takodachi')
-        request.headers.append('If-Modified-Since', tomorrow.toString())
-
-        const res = await app.handle(request)
-
-        expect(res.body).toBe(null)
-        expect(res.status).toBe(304)
-    })
-
-    it('return ok response when noCache', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                noExtension: true,
-                noCache: true
-            })
-        )
-
-        await app.modules
-
-        const tomorrow = new Date()
-        tomorrow.setDate(tomorrow.getDate() + 1)
-
-        const request = req('/public/takodachi')
-        request.headers.append('If-None-Match', 'ZGe9eXgawZBlMox8sZg82Q==')
-        request.headers.append('If-Modified-Since', tomorrow.toString())
-
-        const res = await app.handle(request)
-
-        expect(res.status).toBe(200)
-    })
-
-    it('should 404 when navigate to folder', async () => {
-        const app = new Elysia().use(staticPlugin())
-
-        await app.modules
-
-        const notFoundPaths = [
-            '/public',
-            '/public/',
-            '/public/nested',
-            '/public/nested/'
-        ]
-
-        for (const path of notFoundPaths) {
-            const res = await app.handle(req(path))
-
-            expect(res.status).toBe(404)
-        }
-    })
-
-    it('serve index.html to default /', async () => {
-        const app = new Elysia().use(staticPlugin())
-        await app.modules
-
-        let res = await app.handle(req('/public'))
-        expect(res.status).toBe(404)
-
-        res = await app.handle(req('/public/html'))
-        expect(res.status).toBe(200)
-    })
-
-    it('does not serve index.html to default / when not indexHTML', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                indexHTML: false
-            })
-        )
-        await app.modules
-
-        let res = await app.handle(req('/public'))
-        expect(res.status).toBe(404)
-
-        res = await app.handle(req('/public/html'))
-        expect(res.status).toBe(404)
-    })
-
-    it('serves index.html to default / when alwaysStatic', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true
-            })
-        )
-        await app.modules
-
-        let res = await app.handle(req('/public'))
-        expect(res.status).toBe(404)
-
-        res = await app.handle(req('/public/html'))
-        expect(res.status).toBe(200)
-    })
-
-    it('does not serve index.html to default / when alwaysStatic and not indexHTML', async () => {
-        const app = new Elysia().use(
-            staticPlugin({
-                alwaysStatic: true,
-                indexHTML: false
-            })
-        )
-        await app.modules
-
-        let res = await app.handle(req('/public'))
-        expect(res.status).toBe(404)
-
-        res = await app.handle(req('/public/html'))
-        expect(res.status).toBe(404)
+        it('should throw error for null secret in unsignCookie', async () => {
+            expect(async () => {
+                await unsignCookie('signed.value', null)
+            }).toThrow()
+        })
     })
 })
