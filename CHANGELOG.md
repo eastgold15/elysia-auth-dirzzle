@@ -167,6 +167,7 @@ Change:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 ## v1.1.14
 
@@ -174,6 +175,12 @@ Change:
 =======
 =======
 =======
+=======
+## v1.1.24
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.23...v1.1.24)
+
+>>>>>>> 26a7fd003adb8a58cafac608101c8d25a7c6bf25
 ## v1.1.23
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.22...v1.1.23)
