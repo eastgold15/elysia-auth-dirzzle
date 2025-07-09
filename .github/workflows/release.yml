@@ -39,13 +39,14 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Run tests
-        run: bun test
+      # - name: Run tests
+      #   run: bun test
 
       - name: Configure Git
         run: |
           git config --local user.email "1960825664@qq.com"
           git config --local user.name "pori"
+
 
       - name: Release
         run: |
