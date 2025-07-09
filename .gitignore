@@ -5,3 +5,7 @@
 **/dist
 
 build
+
+docker/
+
+**/drizzle/meta

@@ -132,7 +132,6 @@ export const getAccessTokenFromRequest = async (
   if (req.headers.authorization) {
     token = (req.headers.authorization as string).trim().split(' ')[1];
   }
-
   return token;
 };
 
@@ -181,13 +180,12 @@ export const checkTokenValidity =
           }
         } catch (error) {
           // token 校验失败，且不是公开页面则抛出未授权
-          if (
-            !currentUrlAndMethodIsAllowed(
-              currentUrl,
-              currentMethod as HTTPMethods,
-              options.config!,
-            )
-          ) {
+          const isPublicPage = currentUrlAndMethodIsAllowed(
+            currentUrl,
+            currentMethod as HTTPMethods,
+            options.config!,
+          );
+          if (!isPublicPage) {
             if (cookieManager && cookieManager['authorization']) {
               cookieManager['authorization'].remove();
             }

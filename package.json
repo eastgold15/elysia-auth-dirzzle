@@ -16,6 +16,7 @@
         "release:publish": "bunx changelogen@latest --patch --release --push --publish"
     },
     "types": "./dist/types/index.d.ts",
+    "main": "dist/index.mjs",
     "files": [
         "dist",
         "package.json"

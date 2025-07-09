@@ -9,7 +9,8 @@ export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey().notNull().defaultRandom(),
-
+    username: text('username').notNull(),
+    password: text('password').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at')
       .notNull()
