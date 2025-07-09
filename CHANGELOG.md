@@ -163,6 +163,18 @@ Change:
 - Support for KingWorld 0.0.0-experimental.28 onward
 - chore: update dependencies
 
+## v1.1.4
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.3...v1.1.4)
+
+### 🤖 CI
+
+- 移除测试配置和禁用发布工作流 ([80659bb](https://github.com/eastgold15/elysia-auth-dirzzle/commit/80659bb))
+
+### ❤️ Contributors
+
+- 田正东 <1960825664@qq.com>
+
 ## v1.1.3
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.2...v1.1.3)
