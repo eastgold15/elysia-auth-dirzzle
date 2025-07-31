@@ -170,6 +170,19 @@ Change:
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+## v1.1.27
+
+[compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.26...v1.1.27)
+
+### 🚀 Enhancements
+
+- **example:** 添加用户认证功能并更新数据库结构 ([bc9354e](https://github.com/eastgold15/elysia-auth-dirzzle/commit/bc9354e))
+- 添加数据库配置和用户认证相关schema ([46f3418](https://github.com/eastgold15/elysia-auth-dirzzle/commit/46f3418))
+
+### ❤️ Contributors
+
+- 田正东 <1960825664@qq.com>
+
 ## v1.1.26
 
 [compare changes](https://github.com/eastgold15/elysia-auth-dirzzle/compare/v1.1.25...v1.1.26)
