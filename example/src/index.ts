@@ -1,41 +1,21 @@
 // 使用npm包方式导入（需要先构建和安装包）
-import {
-  createUserToken,
-  elysiaAuthDrizzlePlugin,
-} from "@pori15/elysia-auth-drizzle";
+
 import { eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { tokenSchema, userSchema } from "./db/schema";
 
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
+import elysiaAuthDrizzlePlugin from "@pori15/elysia-auth-drizzle";
+
+
 
 const db = drizzle(process.env.DATABASE_URL!);
-
 
 // 创建Elysia应用并使用认证插件
 const app = new Elysia()
   .use(
-    
-    elysiaAuthDrizzlePlugin({
-      jwtSecret: 'your-jwt-secret-key',
-      cookieSecret: 'your-cookie-secret-key',
-      drizzle: {
-        db,
-        usersSchema: userSchema,
-        tokensSchema: tokenSchema,
-      },
-      getTokenFrom: {
-        from: 'header', // 从请求头获取token
-        headerName: 'authorization',
-      },
-      PublicUrlConfig: [
-        { url: '/', method: '*' },
-        { url: '/register', method: '*' },
-        { url: '/login', method: '*' },
-      ]
-
-    })
+    elysiaAuthDrizzlePlugin
 
   )
   .post(

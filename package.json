@@ -1,70 +1,70 @@
 {
-  "name": "@pori15/elysia-auth-drizzle",
-  "description": "Authentication plugin for Elysia using Drizzle ORM",
-  "author": {
-    "name": "pori",
-    "url": "https://github.com/eastgold15",
-    "email": "1960825664@qq.com"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/eastgold15/elysia-auth-dirzzle"
-  },
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/cjs/index.js"
-    }
-  },
-  "bugs": "https://github.com/eastgold15/elysia-auth-dirzzle/issues",
-  "homepage": "https://github.com/eastgold15/elysia-auth-dirzzle",
-  "version": "1.1.27",
-  "keywords": [
-    "elysia",
-    "auth",
-    "authentication",
-    "drizzle",
-    "jwt"
-  ],
-  "files": [
-    "dist",
-    "package.json"
-  ],
-  "license": "MIT",
-  "scripts": {
-    "dev": "bun run --hot example/index.ts",
-    "test": "bun test && npm run test:node",
-    "test:node": "npm install --prefix ./test/node/cjs/ && npm install --prefix ./test/node/esm/ && node ./test/node/cjs/index.js && node ./test/node/esm/index.js",
-    "build:old": "rolldown -c rolldown.config.ts",
-    "build": "bun build.ts",
-    "release": " npm publish --access public",
-    "release:patch": "bunx changelogen@latest --patch --release --push",
-    "release:minor": "bunx changelogen@latest --minor --release --push",
-    "release:major": "bunx changelogen@latest --major --release --push",
-    "release:publish": "bunx changelogen@latest --patch --release --push --publish"
-  },
-  "dependencies": {
-    "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10",
-    "bun-types": "latest",
-    "changelogen": "^0.6.2",
-    "drizzle-kit": "^0.31.4",
-    "rolldown": "^1.0.0-beta.30",
-    "rolldown-plugin-dts": "^0.14.2",
-    "typescript": "^5.8.3",
-    "tsup": "^8.5.0"
-  },
-  "peerDependencies": {
-    "elysia": "latest",
-    "drizzle-orm": "^0.44.4",
-    "@bogeychan/elysia-logger": "^0.1.8",
-    "unify-errors": "^1.3.90"
-  }
+	"name": "@pori15/elysia-auth-drizzle",
+	"description": "Authentication plugin for Elysia using Drizzle ORM",
+	"author": {
+		"name": "pori",
+		"url": "https://github.com/eastgold15",
+		"email": "1960825664@qq.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/eastgold15/elysia-auth-dirzzle"
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		"./package.json": "./package.json",
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"bugs": "https://github.com/eastgold15/elysia-auth-dirzzle/issues",
+	"homepage": "https://github.com/eastgold15/elysia-auth-dirzzle",
+	"version": "1.1.27",
+	"keywords": [
+		"elysia",
+		"auth",
+		"authentication",
+		"drizzle",
+		"jwt"
+	],
+	"files": [
+		"dist",
+		"package.json"
+	],
+	"license": "MIT",
+	"scripts": {
+		"dev": "bun run --hot example/index.ts",
+		"test": "bun test && npm run test:node",
+		"test:node": "npm install --prefix ./test/node/cjs/ && npm install --prefix ./test/node/esm/ && node ./test/node/cjs/index.js && node ./test/node/esm/index.js",
+		"build": "pkgroll",
+		"release": " npm publish --access public",
+		"release:patch": "bunx changelogen@latest --patch --release --push",
+		"release:minor": "bunx changelogen@latest --minor --release --push",
+		"release:major": "bunx changelogen@latest --major --release --push",
+		"release:publish": "bunx changelogen@latest --patch --release --push --publish"
+	},
+	"dependencies": {
+		"jsonwebtoken": "^9.0.2",
+		"@types/jsonwebtoken": "^9.0.10",
+		"pkgroll": "^2.15.0"
+	},
+	"devDependencies": {
+		"bun-types": "latest",
+		"changelogen": "^0.6.2",
+		"drizzle-kit": "^0.31.4",
+		"rolldown": "^1.0.0-beta.30",
+		"rolldown-plugin-dts": "^0.14.2",
+		"typescript": "^5.8.3",
+		"tsup": "^8.5.0"
+	},
+	"peerDependencies": {
+		"elysia": "latest",
+		"drizzle-orm": "^0.44.4",
+		"@bogeychan/elysia-logger": "^0.1.8",
+		"unify-errors": "^1.3.90"
+	}
 }

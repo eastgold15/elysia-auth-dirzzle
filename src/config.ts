@@ -1,16 +1,16 @@
-import { UrlConfig } from "./currentUrlAndMethodIsAllowed.type";
-import { tokenSchema, userSchema } from "./db/shema";
 
+import type { UrlConfig } from "./currentUrlAndMethodIsAllowed";
+import type { tokenSchema, userSchema } from "./db/shema";
 
 export type ORMOptions<
   TUser,
   TUsersSchema extends typeof userSchema,
-  TTokensSchema extends typeof tokenSchema
+  TTokensSchema extends typeof tokenSchema,
 > = {
   drizzle: {
     db: any;
-    usersSchema: TUsersSchema
-    tokensSchema: TTokensSchema
+    usersSchema: TUsersSchema;
+    tokensSchema: TTokensSchema;
   };
   getTokenFrom: GetTokenOptions;
 
@@ -21,9 +21,7 @@ export type ORMOptions<
   prefix?: string;
   jwtSecret?: string;
   cookieSecret?: string;
-}
-
-
+};
 
 /**
  * Token 获取配置选项
@@ -32,9 +30,9 @@ export type ORMOptions<
  */
 export interface GetTokenOptions {
   // 优先级配置：指定从哪里获取 token
-  from: 'header' | 'cookie' | 'query';
+  from: "header" | "cookie" | "query";
   // 可选的自定义字段名
-  cookieName?: string;  // 默认 'authorization'
-  headerName?: string;  // 默认 'authorization'
-  queryName?: string;   // 默认 'access_token'
+  cookieName?: string; // 默认 'authorization'
+  headerName?: string; // 默认 'authorization'
+  queryName?: string; // 默认 'access_token'
 }
