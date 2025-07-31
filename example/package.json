@@ -5,14 +5,19 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "@pori15/elysia-auth-drizzle": "link:@pori15/elysia-auth-drizzle",
-    "drizzle-orm": "^0.44.0",
+     "@pori15/elysia-auth-drizzle": "link:@pori15/elysia-auth-drizzle",
+    "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.44.4",
     "elysia": "latest",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.15.5",
     "bun-types": "latest",
-    "@types/jsonwebtoken": "^9.0.6"
+    "drizzle-kit": "^0.31.4",
+    "tsx": "^4.20.3"
   },
   "module": "src/index.js"
 }

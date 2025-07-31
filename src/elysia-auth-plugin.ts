@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { eq } from 'drizzle-orm';
-import { Cookie, Elysia } from 'elysia';
+import { Cookie } from 'elysia';
 import { verify } from 'jsonwebtoken';
 import { Unauthorized } from 'unify-errors';
 
 
-import { currentUrlAndMethodIsAllowed } from './currentUrlAndMethodIsAllowed';
 import { HTTPMethods, UrlConfig } from './currentUrlAndMethodIsAllowed.type';
 
 // REF: https://github.com/elysiajs/elysia/blob/main/src/utils.ts
@@ -151,11 +150,11 @@ export const getAccessTokenFromRequest = async (
  * @param cookieManager cookie管理器
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
-export const checkTokenValidity = <T>(
+export const checkTokenValidity = <TUser, U extends typeof userSchema, O extends typeof tokenSchema>(
   jwtSecret: string,
   verifyAccessTokenOnlyInJWT: boolean,
-  drizzle: ORMOptions<T>['drizzle'],
-  userValidation: ORMOptions<T>['userValidation'],
+  drizzle: ORMOptions<TUser, U, O>['drizzle'],
+  userValidation: ORMOptions<TUser, U, O>['userValidation'],
   publicUrlConfig: UrlConfig[],
   currentUrl: string,
   currentMethod: HTTPMethods,
@@ -163,7 +162,7 @@ export const checkTokenValidity = <T>(
 ) =>
   async (
     tokenValue?: string,
-  ): Promise<{ connectedUser: T; isConnected: true } | void> => {
+  ): Promise<{ connectedUser: TUser; isConnected: true } | void> => {
     // 检查 token 是否存在
     if (!tokenValue) {
       // 如果没有 token，且是公开路由，可以继续；否则应该已经由上层控制
@@ -235,10 +234,10 @@ export const checkTokenValidity = <T>(
     }
 
     // 可选的自定义用户校验
-    userValidation && (await userValidation(user as T));
+    userValidation && (await userValidation(user as TUser));
 
     return {
-      connectedUser: user as T,
+      connectedUser: user as TUser,
       isConnected: true,
     };
   }
@@ -248,121 +247,5 @@ export const checkTokenValidity = <T>(
 
 
 import { GetTokenOptions, ORMOptions } from './config';
-import { userSchema } from './db/shema';
+import { tokenSchema, userSchema } from './db/shema';
 
-
-
-
-
-/**
- * Elysia 插件主入口，自动注入 isConnected/connectedUser 到 context
- * @param ORMOptions 插件配置
- */
-export const elysiaAuthDrizzlePlugin = <T extends typeof userSchema.$inferSelect>(ORMOptions: ORMOptions<T>) => {
-
-  // 拿到必选
-  const { drizzle, getTokenFrom } = ORMOptions;
-
-  // 给可选加上默认值
-  const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [{ url: '*/login', method: 'POST' }, { url: '*/register', method: 'POST' }];
-  const userValidation = ORMOptions?.userValidation ?? ORMOptions['userValidation']
-  /**
-   * 校验token是否只在JWT中校验，默认false
-   */
-  const verifyAccessTokenOnlyInJWT = ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
-  /**
-   *  插件路由前缀，默认/api/auth
-   */
-  const prefix = ORMOptions?.prefix ?? '/api/auth';
-  // 
-  let jwtSecret = '';
-  let cookieSecret = '';
-
-
-  // 没有 jwtSecret 则打印
-  if (!ORMOptions.jwtSecret || !ORMOptions.cookieSecret) {
-    console.log('elysia-auth-drizzle-plugin: jwtSecret or cookieSecret is not defined');
-  }
-  // 根据getTokenFrom的form， 确定Secret的类型
-  switch (getTokenFrom.from) {
-    case 'header':
-      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
-      break;
-    case 'cookie':
-      cookieSecret = ORMOptions?.cookieSecret || 'cookieSecret';
-      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
-      break;
-    case 'query':
-      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
-      break;
-    default:
-      break;
-  }
-  // 注册 derive 钩子，自动注入登录态和用户信息
-  return new Elysia({ name: 'elysia-auth-drizzle' }).derive(
-    { as: 'global' },
-    async ({ headers, query, cookie, request }) => {
-      // 是否已登录
-      let isConnected = false;
-      // 登录用户
-      let connectedUser: T | undefined;
-
-      // 组装请求对象
-      const req = {
-        headers,
-        query,
-        cookie,
-        url: new URL(request.url).pathname,
-        method: request.method as HTTPMethods,
-      };
-
-      // 根据getTokenFrom的值来结合惰性函数， 获取提取token的逻辑
-
-      // 提取 token
-      const tokenValue: string | undefined = await getAccessTokenFromRequest(
-        req,
-        getTokenFrom,
-        cookieSecret,
-      );
-
-      // 校验 token
-      const res = await checkTokenValidity<T>(
-        jwtSecret,
-        verifyAccessTokenOnlyInJWT,
-        drizzle,
-        userValidation,
-        PublicUrlConfig,
-        req.url,
-        req.method,
-        req.cookie,
-      )(tokenValue);
-
-      if (res) {
-        connectedUser = res.connectedUser;
-        isConnected = res.isConnected;
-      }
-
-
-      // 如果未登录且不是公开页面，抛出未授权
-      if (
-        !isConnected &&
-        (prefix ? req.url.startsWith(prefix) : true) &&
-        !currentUrlAndMethodIsAllowed(
-          req.url,
-          req.method as HTTPMethods,
-          PublicUrlConfig!,
-        )
-      ) {
-        throw new Unauthorized({
-          error: 'Page is not public',
-        });
-      }
-      // 注入 context
-      return {
-        isConnected,
-        connectedUser,
-      };
-    },
-  );
-
-};

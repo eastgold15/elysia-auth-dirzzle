@@ -1,26 +1,26 @@
-import { PgDatabase } from "drizzle-orm/pg-core";
 import { UrlConfig } from "./currentUrlAndMethodIsAllowed.type";
 import { tokenSchema, userSchema } from "./db/shema";
 
 
+export type ORMOptions<
+  TUser,
+  TUsersSchema extends typeof userSchema,
+  TTokensSchema extends typeof tokenSchema
+> = {
+  drizzle: {
+    db: any;
+    usersSchema: TUsersSchema
+    tokensSchema: TTokensSchema
+  };
+  getTokenFrom: GetTokenOptions;
 
-
-export type ORMOptions<T = typeof userSchema.$inferSelect> = {
-    drizzle: {
-        db: PgDatabase<any>;
-        usersSchema: typeof userSchema;
-        tokensSchema: typeof tokenSchema;
-    };
-    getTokenFrom: GetTokenOptions;
-
-
-    // 可选配置
-    PublicUrlConfig?: UrlConfig[];
-    userValidation?: (user: T) => void | Promise<void>;
-    verifyAccessTokenOnlyInJWT?: boolean;
-    prefix?: string;
-    jwtSecret?: string;
-    cookieSecret?: string;
+  // 可选配置
+  PublicUrlConfig?: UrlConfig[];
+  userValidation?: (user: TUser) => void | Promise<void>;
+  verifyAccessTokenOnlyInJWT?: boolean;
+  prefix?: string;
+  jwtSecret?: string;
+  cookieSecret?: string;
 }
 
 
@@ -31,10 +31,10 @@ export type ORMOptions<T = typeof userSchema.$inferSelect> = {
  * only-cookie 把jwt 装到cookie 签名
  */
 export interface GetTokenOptions {
-    // 优先级配置：指定从哪里获取 token
-    from: 'header' | 'cookie' | 'query';
-    // 可选的自定义字段名
-    cookieName?: string;  // 默认 'authorization'
-    headerName?: string;  // 默认 'authorization'
-    queryName?: string;   // 默认 'access_token'
+  // 优先级配置：指定从哪里获取 token
+  from: 'header' | 'cookie' | 'query';
+  // 可选的自定义字段名
+  cookieName?: string;  // 默认 'authorization'
+  headerName?: string;  // 默认 'authorization'
+  queryName?: string;   // 默认 'access_token'
 }

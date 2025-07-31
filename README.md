@@ -30,17 +30,137 @@ npm install @pori15/elysia-auth-drizzle
 
 ## 🚀 快速开始
 
+### 完整示例
+
+```typescript
+import { Elysia, t } from 'elysia'
+import { elysiaAuthDrizzlePlugin, createUserToken } from '@pori15/elysia-auth-drizzle'
+import { drizzle } from "drizzle-orm/bun-sql"
+import { eq } from 'drizzle-orm'
+import { tokenSchema, userSchema } from './db/schema'
+
+const db = drizzle(process.env.DATABASE_URL!)
+
+const app = new Elysia()
+  .use(
+    elysiaAuthDrizzlePlugin<
+      typeof userSchema.$inferSelect,
+      typeof userSchema,
+      typeof tokenSchema
+    >({
+      jwtSecret: 'your-jwt-secret-key',
+      cookieSecret: 'your-cookie-secret-key',
+      drizzle: {
+        db,
+        usersSchema: userSchema,
+        tokensSchema: tokenSchema,
+      },
+      getTokenFrom: {
+        from: 'header', // 从请求头获取token
+        headerName: 'authorization',
+      },
+      PublicUrlConfig: [
+        { url: '/', method: '*' },
+        { url: '/register', method: '*' },
+        { url: '/login', method: '*' },
+      ],
+    })
+  )
+  .post('/register', async ({ body: { username, password } }) => {
+    // 检查用户是否已存在
+    const existingUser = await db.select().from(userSchema)
+      .where(eq(userSchema.username, username))
+    
+    if (existingUser.length > 0) {
+      return { code: 1, msg: '用户名已存在' }
+    }
+    
+    // 创建新用户
+    const newUser = await db.insert(userSchema).values({
+      username,
+      password
+    }).returning({
+      id: userSchema.id,
+      username: userSchema.username
+    })
+    
+    return newUser
+  }, {
+    body: t.Object({
+      username: t.String(),
+      password: t.Any()
+    })
+  })
+  .post('/login', async ({ body: { username, password } }) => {
+    // 验证用户
+    const user = await db.select().from(userSchema)
+      .where(eq(userSchema.username, username))
+    
+    if (user.length === 0) {
+      return { code: 1, msg: '用户名不存在' }
+    }
+    
+    if (+user[0].password !== password) {
+      return { code: 2, msg: '密码错误' }
+    }
+    
+    // 创建token
+    const token = createUserToken({
+      db,
+      usersSchema: userSchema,
+      tokensSchema: tokenSchema
+    })
+    
+    const tokenResult = await token(
+      '' + user[0].id,
+      {
+        secret: 'your-jwt-secret-key',
+        accessTokenTime: '12h',
+        refreshTokenTime: '1d',
+      }
+    )
+    
+    return tokenResult
+  }, {
+    body: t.Object({
+      username: t.String(),
+      password: t.Any()
+    })
+  })
+  .get('/', ({ isConnected, connectedUser }) => {
+    return {
+      isConnected,
+      connectedUser
+    }
+  })
+  .get('/protected', ({ isConnected, connectedUser }) => {
+    if (!isConnected) {
+      return { error: 'Unauthorized' }
+    }
+    return { user: connectedUser }
+  })
+  .listen(3000)
+
+console.log(
+  `🔐 Auth server is running at http://${app.server?.hostname}:${app.server?.port}`
+)
+```
+
 ### 基本用法
 
 ```typescript
 import { Elysia } from 'elysia'
 import { elysiaAuthDrizzlePlugin } from '@pori15/elysia-auth-drizzle'
 import { db } from './db' // 你的 Drizzle 数据库实例
-import { users, tokens } from './schema' // 你的数据库 schema
+import { userSchema, tokenSchema } from './schema' // 你的数据库 schema
 
 const app = new Elysia()
   .use(
-    elysiaAuthDrizzlePlugin<typeof users.$inferSelect>({
+    elysiaAuthDrizzlePlugin<
+      typeof userSchema.$inferSelect,
+      typeof userSchema,
+      typeof tokenSchema
+    >({
       // JWT 密钥
       jwtSecret: process.env.JWT_SECRET!,
       
@@ -50,11 +170,11 @@ const app = new Elysia()
       // 数据库配置
       drizzle: {
         db: db,
-        usersSchema: users,
-        tokensSchema: tokens,
+        usersSchema: userSchema,
+        tokensSchema: tokenSchema,
       },
       
-      // 认证方式配置
+      // 认证方式配置（必需）
       getTokenFrom: {
         from: 'header', // 'header' | 'cookie' | 'query'
         headerName: 'authorization', // 默认值
@@ -107,9 +227,9 @@ export const tokens = pgTable('tokens', {
 
 | 参数 | 类型 | 默认值 | 描述 |
 |------|------|--------|------|
-| `jwtSecret` | `string` | **必需** | JWT 签名密钥 |
 | `drizzle` | `object` | **必需** | 数据库配置对象 |
 | `getTokenFrom` | `GetTokenOptions` | **必需** | 令牌获取方式配置 |
+| `jwtSecret` | `string` | `undefined` | JWT 签名密钥（可选） |
 | `cookieSecret` | `string` | `undefined` | Cookie 签名密钥（可选） |
 | `PublicUrlConfig` | `UrlConfig[]` | `[{url: '*/login', method: 'POST'}, {url: '*/register', method: 'POST'}]` | 公共路由配置 |
 | `verifyAccessTokenOnlyInJWT` | `boolean` | `false` | 仅验证 JWT，不检查数据库 |
@@ -166,6 +286,39 @@ fetch('/api/protected?token=your-jwt-token')
 ## 🛠️ 工具函数
 
 插件还导出了一些有用的工具函数：
+
+### 创建用户令牌
+
+```typescript
+import { createUserToken } from '@pori15/elysia-auth-drizzle'
+
+// 创建token生成器
+const token = createUserToken({
+  db,
+  usersSchema: userSchema,
+  tokensSchema: tokenSchema
+})
+
+// 生成用户token
+const tokenResult = await token(
+  userId, // 用户ID（字符串）
+  {
+    secret: 'your-jwt-secret-key',
+    accessTokenTime: '12h', // 访问令牌有效期
+    refreshTokenTime: '1d', // 刷新令牌有效期
+  }
+)
+
+// 返回结果包含：
+// {
+//   accessToken: string,
+//   refreshToken: string,
+//   accessTokenTime: string,
+//   refreshTokenTime: string
+// }
+```
+
+### 其他工具函数
 
 ```typescript
 import {

@@ -1,14 +1,14 @@
-import { relations } from 'drizzle-orm';
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * Users
  */
+import { relations } from "drizzle-orm";
+import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
-export const users = pgTable(
+export const userSchema = pgTable(
   'users',
   {
-    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    id: serial('id').primaryKey().notNull(),
     username: text('username').notNull(),
     password: text('password').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -19,35 +19,38 @@ export const users = pgTable(
         return new Date();
       }),
   },
-  (users) => [index('user_id_idx').on(users.id)],
+  (users) => [
+    index('users_id_idx').on(users.id),
+  ]
 );
 
-export const usersRelations = relations(users, ({ many }) => ({
-  tokens: many(tokens),
+
+export const usersRelations = relations(userSchema, ({ many }) => ({
+  tokens: many(tokenSchema),
 }));
 
 /**
  * Tokens
  */
 
-export const tokens = pgTable(
+export const tokenSchema = pgTable(
   'tokens',
   {
-    id: uuid('id').notNull().defaultRandom(),
-
-    ownerId: uuid('owner_id').notNull(),
-
+    id: serial('id').primaryKey().notNull(),
+    ownerId: integer('owner_id').references(() => userSchema.id),
     accessToken: text('access_token').notNull(),
     refreshToken: text('refresh_token').notNull(),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (tokens) => [index('tokens_id_idx').on(tokens.id)],
+  (tokens) => [
+    index('tokens_id_idx').on(tokens.id),
+  ]
 );
 
-export const tokensRelations = relations(tokens, ({ one }) => ({
-  owner: one(users, {
-    fields: [tokens.ownerId],
-    references: [users.id],
+export const tokensRelations = relations(tokenSchema, ({ one }) => ({
+  owner: one(userSchema, {
+    fields: [tokenSchema.ownerId],
+    references: [userSchema.id],
   }),
 }));

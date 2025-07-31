@@ -1,9 +1,10 @@
-import { relations } from 'drizzle-orm';
-import { index, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
 /**
  * Users
  */
+
+import { relations } from "drizzle-orm";
+import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const userSchema = pgTable(
     'users',
@@ -40,7 +41,6 @@ export const tokenSchema = pgTable(
         ownerId: integer('owner_id').references(() => userSchema.id),
         accessToken: text('access_token').notNull(),
         refreshToken: text('refresh_token').notNull(),
-
         createdAt: timestamp('created_at').notNull().defaultNow(),
     },
     (tokens) => ({

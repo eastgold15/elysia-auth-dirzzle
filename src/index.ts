@@ -7,27 +7,161 @@
  * @version 1.0.0
  */
 
+import Elysia from 'elysia';
+import { Unauthorized } from 'unify-errors';
+import { currentUrlAndMethodIsAllowed } from './currentUrlAndMethodIsAllowed';
+import { HTTPMethods } from './currentUrlAndMethodIsAllowed.type';
+import { userSchema, tokenSchema } from './db/shema';
+import { getAccessTokenFromRequest, checkTokenValidity } from './elysia-auth-plugin';
+import type { ORMOptions } from './config';
+
+
 // === 核心插件导出 ===
 export {
-    elysiaAuthDrizzlePlugin,
-    checkTokenValidity,
-    getAccessTokenFromRequest,
-    signCookie,
-    unsignCookie
+  checkTokenValidity,
+  getAccessTokenFromRequest,
+  signCookie,
+  unsignCookie
 } from './elysia-auth-plugin';
 
 // === 工具函数导出 ===
 export {
-    createUserToken,
-    removeUserToken,
-    removeAllUserTokens,
-    refreshUserToken
+  createUserToken,
+  removeUserToken,
+  removeAllUserTokens,
+  refreshUserToken
 } from './utils';
 
 // === 辅助函数导出 ===
 export {
-    currentUrlAndMethodIsAllowed
+  currentUrlAndMethodIsAllowed
 } from './currentUrlAndMethodIsAllowed';
 
-// === 默认导出 ===
-export { elysiaAuthDrizzlePlugin as default } from './elysia-auth-plugin';
+
+
+/**
+ * Elysia 插件主入口，自动注入 isConnected/connectedUser 到 context
+ * @param ORMOptions 插件配置
+ */
+export const elysiaAuthDrizzlePlugin = <
+  TUser = typeof userSchema.$inferSelect,
+  TUserSchema extends typeof userSchema = typeof userSchema,
+  TTokenSchema extends typeof tokenSchema = typeof tokenSchema
+>(ORMOptions: ORMOptions<TUser, TUserSchema, TTokenSchema>) => {
+
+  // 拿到必选
+  const { drizzle, getTokenFrom } = ORMOptions;
+
+  // 给可选加上默认值
+  const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [{ url: '*/login', method: 'POST' }, { url: '*/register', method: 'POST' }];
+  const userValidation = ORMOptions?.userValidation ?? ORMOptions['userValidation']
+  /**
+   * 校验token是否只在JWT中校验，默认false
+   */
+  const verifyAccessTokenOnlyInJWT = ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
+  /**
+   *  插件路由前缀，默认/api/auth
+   */
+  const prefix = ORMOptions?.prefix ?? '/api/auth';
+  // 
+  let jwtSecret = '';
+  let cookieSecret = '';
+
+
+  // 没有 jwtSecret 则打印
+  if (!ORMOptions.jwtSecret || !ORMOptions.cookieSecret) {
+    console.log('elysia-auth-drizzle-plugin: jwtSecret or cookieSecret is not defined');
+  }
+  // 根据getTokenFrom的form， 确定Secret的类型
+  switch (getTokenFrom.from) {
+    case 'header':
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    case 'cookie':
+      cookieSecret = ORMOptions?.cookieSecret || 'cookieSecret';
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    case 'query':
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    default:
+      break;
+  }
+
+  // const plugin = new Elysia({ name: 'elysia-auth-drizzle' })
+
+  // 注册 derive 钩子，自动注入登录态和用户信息
+  return async (app: Elysia) => {
+    app
+      .derive(
+        { as: 'global' },
+        async ({ headers, query, cookie, request }) => {
+          // 是否已登录
+          let isConnected = false;
+          // 登录用户
+          let connectedUser: TUser | undefined;
+
+          // 组装请求对象
+          const req = {
+            headers,
+            query,
+            cookie,
+            url: new URL(request.url).pathname,
+            method: request.method as HTTPMethods,
+          };
+
+          // 根据getTokenFrom的值来结合惰性函数， 获取提取token的逻辑
+
+          // 提取 token
+          const tokenValue: string | undefined = await getAccessTokenFromRequest(
+            req,
+            getTokenFrom,
+            cookieSecret,
+          );
+
+          // 校验 token
+          const res = await checkTokenValidity<TUser, TUserSchema, TTokenSchema>(
+            jwtSecret,
+            verifyAccessTokenOnlyInJWT,
+            drizzle,
+            userValidation,
+            PublicUrlConfig,
+            req.url,
+            req.method,
+            req.cookie,
+          )(tokenValue);
+
+          if (res) {
+            connectedUser = res.connectedUser;
+            isConnected = res.isConnected;
+          }
+
+
+          // 如果未登录且不是公开页面，抛出未授权
+          if (
+            !isConnected &&
+            (prefix ? req.url.startsWith(prefix) : true) &&
+            !currentUrlAndMethodIsAllowed(
+              req.url,
+              req.method as HTTPMethods,
+              PublicUrlConfig!,
+            )
+          ) {
+            throw new Unauthorized({
+              error: 'Page is not public',
+            });
+          }
+          // 注入 context
+          return {
+            isConnected,
+            connectedUser,
+          };
+        },
+      );
+
+
+    return app
+
+  }
+};
+
