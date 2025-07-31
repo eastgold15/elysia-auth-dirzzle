@@ -1,14 +1,12 @@
 import { Elysia } from 'elysia'
-import { 
-  elysiaAuthDrizzlePlugin, 
-  getAccessTokenFromRequest, 
-  signCookie, 
-  unsignCookie,
-  checkTokenValidity,
-  currentUrlAndMethodIsAllowed
+import {
+    currentUrlAndMethodIsAllowed,
+    getAccessTokenFromRequest,
+    signCookie,
+    unsignCookie
 } from '../src'
 
-import { describe, expect, it, beforeAll } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { sign } from 'jsonwebtoken'
 
 // 测试用的请求构造函数
@@ -83,7 +81,7 @@ describe('Elysia Auth Drizzle Plugin', () => {
                 query: {}
             }
             
-            const token = await getAccessTokenFromRequest(mockRequest)
+            const token = await getAccessTokenFromRequest(mockRequest, { from: 'header' }, '')
             expect(token).toBe('test-token-123')
         })
 
@@ -96,7 +94,7 @@ describe('Elysia Auth Drizzle Plugin', () => {
                 cookie: {}
             }
             
-            const token = await getAccessTokenFromRequest(mockRequest)
+            const token = await getAccessTokenFromRequest(mockRequest, { from: 'query' }, '')
             expect(token).toBe('query-token-456')
         })
 
@@ -112,7 +110,7 @@ describe('Elysia Auth Drizzle Plugin', () => {
                 query: {}
             }
             
-            const token = await getAccessTokenFromRequest(mockRequest)
+            const token = await getAccessTokenFromRequest(mockRequest, { from: 'cookie' }, '')
             expect(token).toBe(cookieValue)
         })
 
@@ -131,7 +129,7 @@ describe('Elysia Auth Drizzle Plugin', () => {
                 query: {}
             }
             
-            const token = await getAccessTokenFromRequest(mockRequest, secret)
+            const token = await getAccessTokenFromRequest(mockRequest, { from: 'cookie' }, secret)
             expect(token).toBe(originalValue)
         })
     })

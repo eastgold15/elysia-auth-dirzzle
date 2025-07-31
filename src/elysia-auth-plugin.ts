@@ -5,8 +5,8 @@ import { verify } from 'jsonwebtoken';
 import { Unauthorized } from 'unify-errors';
 
 
-import { HTTPMethods, UrlConfig } from './currentUrlAndMethodIsAllowed.type';
 import { currentUrlAndMethodIsAllowed } from './currentUrlAndMethodIsAllowed';
+import { HTTPMethods, UrlConfig } from './currentUrlAndMethodIsAllowed.type';
 
 // REF: https://github.com/elysiajs/elysia/blob/main/src/utils.ts
 const encoder = new TextEncoder();
@@ -48,6 +48,7 @@ export const signCookie = async (val: string, secret: string | null) => {
   );
 };
 
+
 /**
  * 校验 cookie 签名是否正确
  * @param input 签名后的cookie字符串
@@ -66,28 +67,13 @@ export const unsignCookie = async (input: string, secret: string | null) => {
   return expectedInput === input ? tentativeValue : false;
 };
 
-// 插件配置项类型，T为用户类型
-export interface Options<T> {
-  jwtSecret: string; // JWT密钥
-  cookieSecret?: string; // cookie签名密钥
-  drizzle: {
-    //@ts-ignore
-    db; // drizzle-orm数据库实例
-    //@ts-ignore
-    tokensSchema?; // token表schema
-    //@ts-ignore
-    usersSchema; // 用户表schema
-  };
-  config?: UrlConfig[]; // 公开页面配置
-  userValidation?: (user: T) => void | Promise<void>; // 自定义用户校验
-  verifyAccessTokenOnlyInJWT?: boolean; // 是否只校验JWT，不查数据库
-  prefix?: string; // 路由前缀
-}
+
+
 
 /**
- * 从请求中提取 accessToken，支持 cookie、query、header
+ * 从请求中提取 accessToken，支持按配置惰性获取
  * @param req 请求对象
- * @param cookieSecret cookie签名密钥
+ * @param options 获取配置选项
  */
 export const getAccessTokenFromRequest = async (
   req: {
@@ -95,44 +81,66 @@ export const getAccessTokenFromRequest = async (
     query?: Record<string, string | undefined>;
     headers: Record<string, string | undefined>;
   },
-  cookieSecret?: string,
-) => {
-  let token: string | undefined;
+  getTokenFrom: GetTokenOptions,
+  cookieSecret: string,
+): Promise<string | undefined> => {
 
-  // 优先从 cookie 里取
-  if (
-    req.cookie &&
-    req.cookie['authorization'] &&
-    req.cookie['authorization'].value
-  ) {
-    if (cookieSecret) {
-      const result = await unsignCookie(
-        req.cookie['authorization'].value,
-        cookieSecret,
-      );
 
-      if (result === false) {
-        throw new Unauthorized({
-          error: 'Token is not valid',
-        });
-      } else {
-        token = result;
+  const {
+    from = 'header', // 默认从 header 获取
+    cookieName = 'authorization',
+    headerName = 'authorization',
+    queryName = 'access_token',
+  } = getTokenFrom;
+
+  switch (from) {
+    case 'header': {
+      const authHeader = req.headers[headerName];
+      if (!authHeader) {
+        break; // 如果是 'header'，继续往下看其它 case（但其实后面我们直接 return，可以优化）
       }
-    } else {
-      token = req.cookie['authorization'].value;
+
+      const parts = authHeader.trim().split(' ');
+      if (parts.length === 2 && parts[0]!.toLowerCase() === 'bearer') {
+        return parts[1]; // Bearer <token> → 返回未解密的 bearer token
+      }
+
+      // 如果不是 Bearer，直接返回原始 header 值（未解密）
+      return authHeader.trim();
     }
+
+    case 'cookie': {
+      const cookie = req.cookie?.[cookieName];
+      if (!cookie?.value) {
+        break;
+      }
+      if (cookieSecret) {
+        const result = await unsignCookie(cookie.value, cookieSecret);
+        if (result === false) {
+          throw new Unauthorized({
+            error: 'Invalid or tampered token in cookie',
+          });
+        }
+        return result; // ✅ 返回解密后的 token
+      } else {
+        return cookie.value; // ✅ 直接返回未加密的 token
+      }
+    }
+    case 'query':
+      {
+        const queryToken = req.query?.[queryName];
+        if (!queryToken) {
+
+          break;
+        }
+        return queryToken; // ✅ 直接返回 query 中的 token（未解密）
+      }
+    default:
+      // 未知的 from 值，返回 undefined
+      console.log("getAccessTokenFromRequest: 未知的 from 值，返回 undefined");
+      return undefined;
   }
 
-  // 其次从 query 里取
-  if ((req.query as { access_token: string }).access_token) {
-    token = (req.query as { access_token: string }).access_token;
-  }
-
-  // 最后从 header 里取
-  if (req.headers.authorization) {
-    token = (req.headers.authorization as string).trim().split(' ')[1];
-  }
-  return token;
 };
 
 /**
@@ -143,103 +151,154 @@ export const getAccessTokenFromRequest = async (
  * @param cookieManager cookie管理器
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
-export const checkTokenValidity =
-  <T>(
-    options: Options<T>,
-    currentUrl: string,
-    currentMethod: HTTPMethods,
-    cookieManager: { [x: string]: { remove: () => void } },
-  ) =>
-    async (
-      tokenValue?: string,
-    ): Promise<{ connectedUser: T; isConnected: true } | void> => {
-      // 检查 token 是否存在
-      if (tokenValue) {
-        let userId;
+export const checkTokenValidity = <T>(
+  jwtSecret: string,
+  verifyAccessTokenOnlyInJWT: boolean,
+  drizzle: ORMOptions<T>['drizzle'],
+  userValidation: ORMOptions<T>['userValidation'],
+  publicUrlConfig: UrlConfig[],
+  currentUrl: string,
+  currentMethod: HTTPMethods,
+  cookieManager: { [x: string]: { remove: () => void } },
+) =>
+  async (
+    tokenValue?: string,
+  ): Promise<{ connectedUser: T; isConnected: true } | void> => {
+    // 检查 token 是否存在
+    if (!tokenValue) {
+      // 如果没有 token，且是公开路由，可以继续；否则应该已经由上层控制
+      return
+    }
 
-        try {
-          // 先用 JWT 校验 token
-          const tokenData = verify(tokenValue, options.jwtSecret);
+    let userId: number;
 
-          // 如果需要查数据库，进一步校验 token 是否有效
-          if (!options.verifyAccessTokenOnlyInJWT) {
-            const result = await options.drizzle.db
-              .select()
-              .from(options.drizzle.tokensSchema)
-              .where(eq(options.drizzle.tokensSchema.accessToken, tokenValue))
-              .limit(1);
 
-            if (result.length !== 1) {
-              throw 'Token not valid in DB';
-            } else {
-              userId = result[0].ownerId;
-            }
-          } else {
-            //@ts-ignore
-            userId = tokenData.id;
-          }
-        } catch (error) {
-          // token 校验失败，且不是公开页面则抛出未授权
-          const isPublicPage = currentUrlAndMethodIsAllowed(
-            currentUrl,
-            currentMethod as HTTPMethods,
-            options.config!,
-          );
-          if (!isPublicPage) {
-            if (cookieManager && cookieManager['authorization']) {
-              cookieManager['authorization'].remove();
-            }
-
-            throw new Unauthorized({
-              error: 'Token is not valid',
-            });
-          }
-
-          return;
-        }
-
-        // 查找用户信息
-        const result = await options.drizzle.db
+    try {
+      // 先用 JWT 校验 token
+      const tokenData = verify(tokenValue, jwtSecret);
+      // 如果需要查数据库，进一步校验 token 是否有效
+      if (!verifyAccessTokenOnlyInJWT) {
+        const result = await drizzle.db
           .select()
-          .from(options.drizzle.usersSchema)
-          .where(eq(options.drizzle.usersSchema.id, userId))
+          .from(drizzle.tokensSchema)
+          .where(eq(drizzle.tokensSchema.accessToken, tokenValue))
           .limit(1);
 
-        const user = result[0];
-
-        // 可选的自定义用户校验
-        options.userValidation && (await options.userValidation(user));
-
-        return {
-          connectedUser: user as T,
-          isConnected: true,
-        };
+        if (!result[0]?.ownerId) {
+          throw 'Token not valid in DB';
+        } else {
+          userId = result[0].ownerId;
+        }
       }
+      else {
+
+        // 3. 如果信任 JWT，直接从 payload 中取 id
+        if (typeof tokenData !== 'object' || !tokenData?.id) {
+          throw new Error('Invalid JWT payload: missing id');
+        }
+        userId = Number(tokenData.id); // ✅ 确保是 number 类型
+
+
+      }
+    } catch (error) {
+      // 4. 校验失败处理
+      const isPublicPage = publicUrlConfig.some(
+        (config) => config.url === currentUrl && config.method === currentMethod
+      );
+
+      if (!isPublicPage) {
+        const authCookie = cookieManager?.['authorization'];
+        authCookie?.remove();
+
+        throw new Unauthorized({
+          error: 'Token is not valid',
+        });
+      }
+
+      // 如果是公开路由，直接返回，不查询用户
+      return;
+    }
+
+
+    // 查找用户信息
+    const userResult = await drizzle.db
+      .select()
+      .from(drizzle.usersSchema)
+      .where(eq(drizzle.usersSchema.id, userId))
+      .limit(1);
+
+    const user = userResult[0];
+    if (!user) {
+      throw new Unauthorized({
+        error: 'User not found',
+      });
+    }
+
+    // 可选的自定义用户校验
+    userValidation && (await userValidation(user as T));
+
+    return {
+      connectedUser: user as T,
+      isConnected: true,
     };
+  }
+
+
+
+
+
+import { GetTokenOptions, ORMOptions } from './config';
+import { userSchema } from './db/shema';
+
+
+
+
 
 /**
  * Elysia 插件主入口，自动注入 isConnected/connectedUser 到 context
- * @param userOptions 插件配置
+ * @param ORMOptions 插件配置
  */
-export const elysiaAuthDrizzlePlugin = <T>(userOptions?: Options<T>) => {
-  // 默认配置
-  const defaultOptions: Omit<
-    Required<Options<T>>,
-    'jwtSecret' | 'cookieSecret' | 'drizzle' | 'prefix'
-  > = {
-    config: [],
-    userValidation: () => { },
-    verifyAccessTokenOnlyInJWT: false,
-  };
+export const elysiaAuthDrizzlePlugin = <T extends typeof userSchema.$inferSelect>(ORMOptions: ORMOptions<T>) => {
 
-  // 合并用户配置和默认配置
-  const options = {
-    ...defaultOptions,
-    ...userOptions,
-  } as Required<Options<T>>;
+  // 拿到必选
+  const { drizzle, getTokenFrom } = ORMOptions;
 
+  // 给可选加上默认值
+  const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [{ url: '*/login', method: 'POST' }, { url: '*/register', method: 'POST' }];
+  const userValidation = ORMOptions?.userValidation ?? ORMOptions['userValidation']
+  /**
+   * 校验token是否只在JWT中校验，默认false
+   */
+  const verifyAccessTokenOnlyInJWT = ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
+  /**
+   *  插件路由前缀，默认/api/auth
+   */
+  const prefix = ORMOptions?.prefix ?? '/api/auth';
+  // 
+  let jwtSecret = '';
+  let cookieSecret = '';
+
+
+  // 没有 jwtSecret 则打印
+  if (!ORMOptions.jwtSecret || !ORMOptions.cookieSecret) {
+    console.log('elysia-auth-drizzle-plugin: jwtSecret or cookieSecret is not defined');
+  }
+  // 根据getTokenFrom的form， 确定Secret的类型
+  switch (getTokenFrom.from) {
+    case 'header':
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    case 'cookie':
+      cookieSecret = ORMOptions?.cookieSecret || 'cookieSecret';
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    case 'query':
+      jwtSecret = ORMOptions?.jwtSecret || 'jwtSecret';
+      break;
+    default:
+      break;
+  }
   // 注册 derive 钩子，自动注入登录态和用户信息
-
   return new Elysia({ name: 'elysia-auth-drizzle' }).derive(
     { as: 'global' },
     async ({ headers, query, cookie, request }) => {
@@ -257,16 +316,22 @@ export const elysiaAuthDrizzlePlugin = <T>(userOptions?: Options<T>) => {
         method: request.method as HTTPMethods,
       };
 
+      // 根据getTokenFrom的值来结合惰性函数， 获取提取token的逻辑
+
       // 提取 token
-      //@ts-ignore
       const tokenValue: string | undefined = await getAccessTokenFromRequest(
         req,
-        options?.cookieSecret,
+        getTokenFrom,
+        cookieSecret,
       );
 
       // 校验 token
       const res = await checkTokenValidity<T>(
-        options as Options<T>,
+        jwtSecret,
+        verifyAccessTokenOnlyInJWT,
+        drizzle,
+        userValidation,
+        PublicUrlConfig,
         req.url,
         req.method,
         req.cookie,
@@ -277,21 +342,21 @@ export const elysiaAuthDrizzlePlugin = <T>(userOptions?: Options<T>) => {
         isConnected = res.isConnected;
       }
 
+
       // 如果未登录且不是公开页面，抛出未授权
       if (
         !isConnected &&
-        (options.prefix ? req.url.startsWith(options.prefix) : true) &&
+        (prefix ? req.url.startsWith(prefix) : true) &&
         !currentUrlAndMethodIsAllowed(
           req.url,
           req.method as HTTPMethods,
-          options.config!,
+          PublicUrlConfig!,
         )
       ) {
         throw new Unauthorized({
           error: 'Page is not public',
         });
       }
-
       // 注入 context
       return {
         isConnected,

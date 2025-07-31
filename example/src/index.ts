@@ -17,7 +17,7 @@ const app = new Elysia()
   .use(
     elysiaAuthDrizzlePlugin<typeof users>({
       jwtSecret: 'your-jwt-secret-key', // 统一JWT密钥
-
+      cookieSecret: 'your-cookie-secret-key',
       drizzle: {
         db,
         usersSchema: users,

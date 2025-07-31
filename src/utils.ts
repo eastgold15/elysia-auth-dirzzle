@@ -3,10 +3,10 @@
 import { eq } from 'drizzle-orm';
 
 // 导入Elysia自带的错误类型
-import { Elysia, NotFoundError, ValidationError } from 'elysia';
+import { NotFoundError } from 'elysia';
 import { sign, verify } from 'jsonwebtoken';
-import { StringValue } from './currentUrlAndMethodIsAllowed.type';
 import { BadRequest, NotFound } from 'unify-errors';
+import { StringValue } from './currentUrlAndMethodIsAllowed.type';
 
 /**
  * 创建用户访问令牌和刷新令牌

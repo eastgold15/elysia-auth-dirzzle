@@ -1,68 +1,271 @@
-# elysia-auth-drizzle
+# @pori15/elysia-auth-drizzle
 
-Library who handle authentification (Header/Cookie/QueryParam).
+一个为 Elysia 框架设计的强大认证插件，支持多种认证方式并与 Drizzle ORM 深度集成。
 
-## Installation
+[![npm version](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle.svg)](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## ✨ 特性
+
+- 🔐 **多种认证方式**：支持 HTTP Header、Cookie、查询参数三种认证方式
+- 🎯 **JWT 集成**：内置 JWT 令牌生成、验证和管理
+- 🗄️ **Drizzle ORM 集成**：与数据库用户和令牌表无缝集成
+- 🛡️ **Cookie 安全**：支持 HMAC-SHA256 签名的安全 Cookie
+- 🚦 **灵活路由控制**：可配置公共路由，无需认证即可访问
+- 🔍 **自定义验证**：支持用户状态检查（如封禁、权限验证等）
+- ⚡ **高性能**：基于 Elysia 的高性能 Web 框架
+- 📝 **TypeScript 支持**：完整的类型定义和类型安全
+
+## 📦 安装
+
 ```bash
-bun add elysia-auth-drizzle
+bun add @pori15/elysia-auth-drizzle
 ```
 
-## Usage
+或使用 npm：
+
+```bash
+npm install @pori15/elysia-auth-drizzle
+```
+
+## 🚀 快速开始
+
+### 基本用法
 
 ```typescript
-import { elysiaAuthDrizzlePlugin } from 'elysia-auth-drizzle';
-import { Elysia } from 'elysia';
+import { Elysia } from 'elysia'
+import { elysiaAuthDrizzlePlugin } from '@pori15/elysia-auth-drizzle'
+import { db } from './db' // 你的 Drizzle 数据库实例
+import { users, tokens } from './schema' // 你的数据库 schema
 
-export const app = new Elysia()
+const app = new Elysia()
   .use(
     elysiaAuthDrizzlePlugin<typeof users.$inferSelect>({
-      config: [
-        {
-          url: '/public',
-          method: 'GET',
-        },
-      ],
-      jwtSecret: 'test',
+      // JWT 密钥
+      jwtSecret: process.env.JWT_SECRET!,
+      
+      // Cookie 签名密钥（可选）
+      cookieSecret: process.env.COOKIE_SECRET,
+      
+      // 数据库配置
       drizzle: {
         db: db,
         usersSchema: users,
         tokensSchema: tokens,
       },
-    }),
+      
+      // 认证方式配置
+      getTokenFrom: {
+        from: 'header', // 'header' | 'cookie' | 'query'
+        headerName: 'authorization', // 默认值
+        cookieName: 'authorization', // 默认值
+        queryName: 'access_token', // 默认值
+      },
+      
+      // 公共路由配置（无需认证）
+      PublicUrlConfig: [
+        { url: '/login', method: 'POST' },
+        { url: '/register', method: 'POST' },
+        { url: '/public/*', method: 'GET' },
+      ],
+    })
   )
+  .get('/protected', ({ isConnected, connectedUser }) => {
+    if (!isConnected) {
+      return { error: 'Unauthorized' }
+    }
+    return { user: connectedUser }
+  })
+  .listen(3000)
 ```
 
-## Plugin options
+### 数据库 Schema 示例
 
-| name                       | default   | description                                                                                                                                            |
-|--------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| jwtSecret                  | undefined | Secret used to sign JWT                                                                                                                                |
-| drizzle                    | undefined | Contain drizzle db + users schema + tokens schemas ({db, userSchemas, tokenSchemas} / Token Schemas is optional if you use verifyAccessTokenOnlyInJWT) |
-| config                     | []        | Array who contain url with method allowed in public                                                                                                    |
-| cookieSecret               | undefined | (optional) Secret used to sign cookie value                                                                                                            |
-| verifyAccessTokenOnlyInJWT | false     | (optional) Check only JWT expiration not token validity in DB                                                                                          |
-| userValidation             | undefined | (optional) (user) => void or `Promise<void>` / Allow to make more check regarding user (ex: check if user is banned)                                   |
+```typescript
+import { pgTable, serial, text, timestamp, integer } from 'drizzle-orm/pg-core'
 
-## Tests
+// 用户表
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  password: text('password').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
 
-To execute jest tests (all errors, type integrity test)
-
+// 令牌表（如果不使用 verifyAccessTokenOnlyInJWT）
+export const tokens = pgTable('tokens', {
+  id: serial('id').primaryKey(),
+  ownerId: integer('owner_id').references(() => users.id),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
 ```
+
+## 🔧 配置选项
+
+| 参数 | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `jwtSecret` | `string` | **必需** | JWT 签名密钥 |
+| `drizzle` | `object` | **必需** | 数据库配置对象 |
+| `getTokenFrom` | `GetTokenOptions` | **必需** | 令牌获取方式配置 |
+| `cookieSecret` | `string` | `undefined` | Cookie 签名密钥（可选） |
+| `PublicUrlConfig` | `UrlConfig[]` | `[{url: '*/login', method: 'POST'}, {url: '*/register', method: 'POST'}]` | 公共路由配置 |
+| `verifyAccessTokenOnlyInJWT` | `boolean` | `false` | 仅验证 JWT，不检查数据库 |
+| `userValidation` | `function` | `undefined` | 自定义用户验证函数 |
+| `prefix` | `string` | `'/api/auth'` | 插件路由前缀 |
+
+### GetTokenOptions 配置
+
+```typescript
+interface GetTokenOptions {
+  from: 'header' | 'cookie' | 'query'
+  headerName?: string // 默认: 'authorization'
+  cookieName?: string // 默认: 'authorization'
+  queryName?: string  // 默认: 'access_token'
+}
+```
+
+## 🔐 认证方式
+
+### 1. Header 认证
+
+```typescript
+// 配置
+getTokenFrom: { from: 'header', headerName: 'authorization' }
+
+// 请求示例
+fetch('/api/protected', {
+  headers: {
+    'Authorization': 'Bearer your-jwt-token'
+  }
+})
+```
+
+### 2. Cookie 认证
+
+```typescript
+// 配置
+getTokenFrom: { from: 'cookie', cookieName: 'auth_token' }
+cookieSecret: 'your-cookie-secret' // 启用 Cookie 签名
+
+// Cookie 会自动包含在请求中
+```
+
+### 3. 查询参数认证
+
+```typescript
+// 配置
+getTokenFrom: { from: 'query', queryName: 'token' }
+
+// 请求示例
+fetch('/api/protected?token=your-jwt-token')
+```
+
+## 🛠️ 工具函数
+
+插件还导出了一些有用的工具函数：
+
+```typescript
+import {
+  signCookie,
+  unsignCookie,
+  getAccessTokenFromRequest,
+  checkTokenValidity,
+  currentUrlAndMethodIsAllowed
+} from '@pori15/elysia-auth-drizzle'
+
+// Cookie 签名
+const signedCookie = await signCookie('value', 'secret')
+
+// Cookie 验证
+const originalValue = await unsignCookie(signedCookie, 'secret')
+
+// 检查 URL 是否为公共路由
+const isPublic = currentUrlAndMethodIsAllowed('/login', 'POST', publicRoutes)
+```
+
+## 🧪 测试
+
+运行测试套件：
+
+```bash
 bun test
 ```
-### 项目概述
-这是一个为 Elysia 框架设计的认证插件，支持多种认证方式（Header/Cookie/QueryParam），并与 Drizzle ORM 深度集成。
 
-### 核心功能
-1. 多种认证方式支持 ：支持通过 HTTP Header、Cookie 或查询参数进行身份验证
-2. JWT 集成 ：内置 JWT 令牌生成和验证功能
-3. Drizzle ORM 集成 ：直接与数据库用户和令牌表交互
-4. 灵活的公共路由配置 ：可配置无需认证的公共访问路径
-5. 用户自定义验证 ：支持额外的用户状态检查（如封禁状态）
-### 配置选项详解
-- jwtSecret ：JWT 签名密钥，必需参数
-- drizzle ：数据库配置，包含 db 实例、用户表和令牌表 schema
-- config ：公共路由配置数组，定义无需认证的 URL 和 HTTP 方法
-- cookieSecret ：Cookie 签名密钥（可选）
-- verifyAccessTokenOnlyInJWT ：仅验证 JWT 过期时间，不检查数据库中的令牌有效性
-- userValidation ：自定义用户验证函数
+项目包含完整的测试覆盖：
+- ✅ Cookie 签名和验证
+- ✅ 多种认证方式的令牌提取
+- ✅ URL 和方法验证
+- ✅ JWT 令牌处理
+- ✅ 插件集成测试
+- ✅ 错误处理测试
+
+## 📝 高级用法
+
+### 自定义用户验证
+
+```typescript
+elysiaAuthDrizzlePlugin({
+  // ... 其他配置
+  userValidation: async (user) => {
+    // 检查用户是否被封禁
+    if (user.status === 'banned') {
+      throw new Error('User is banned')
+    }
+    
+    // 检查用户权限
+    if (!user.isActive) {
+      throw new Error('User account is inactive')
+    }
+  }
+})
+```
+
+### 仅 JWT 验证模式
+
+```typescript
+elysiaAuthDrizzlePlugin({
+  // ... 其他配置
+  verifyAccessTokenOnlyInJWT: true, // 不检查数据库中的令牌
+  // 在此模式下，tokensSchema 是可选的
+})
+```
+
+### 动态公共路由
+
+```typescript
+const publicRoutes = [
+  { url: '/api/health', method: 'GET' },
+  { url: '/api/docs/*', method: 'GET' },
+  { url: '/auth/*', method: 'POST' },
+]
+
+elysiaAuthDrizzlePlugin({
+  // ... 其他配置
+  PublicUrlConfig: publicRoutes
+})
+```
+
+## 🤝 贡献
+
+欢迎贡献代码！请确保：
+
+1. 运行测试：`bun test`
+2. 遵循代码风格
+3. 添加适当的测试用例
+
+## 📄 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件。
+
+## 🔗 相关链接
+
+- [Elysia 框架](https://elysiajs.com/)
+- [Drizzle ORM](https://orm.drizzle.team/)
+- [JWT.io](https://jwt.io/)
+
+---
+
+如果这个项目对你有帮助，请给个 ⭐️ 支持一下！
