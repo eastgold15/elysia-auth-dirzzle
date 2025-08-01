@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 
-import type Elysia from "elysia";
+import Elysia from "elysia";
 import { Unauthorized } from "unify-errors";
 import type { ORMOptions } from "./config";
 import { currentUrlAndMethodIsAllowed, type HTTPMethods } from "./currentUrlAndMethodIsAllowed";
@@ -17,6 +17,8 @@ import {
   checkTokenValidity,
   getAccessTokenFromRequest,
 } from "./elysia-auth-plugin";
+import { PgTableWithColumns } from "drizzle-orm/pg-core";
+
 
 // === 辅助函数导出 ===
 export { currentUrlAndMethodIsAllowed } from "./currentUrlAndMethodIsAllowed";
@@ -25,14 +27,14 @@ export {
   checkTokenValidity,
   getAccessTokenFromRequest,
   signCookie,
-  unsignCookie,
+  unsignCookie
 } from "./elysia-auth-plugin";
 // === 工具函数导出 ===
 export {
   createUserToken,
   refreshUserToken,
   removeAllUserTokens,
-  removeUserToken,
+  removeUserToken
 } from "./utils";
 
 /**
@@ -40,9 +42,9 @@ export {
  * @param ORMOptions 插件配置
  */
 export const elysiaAuthDrizzlePlugin = <
-  TUser = typeof userSchema.$inferSelect,
-  TUserSchema extends typeof userSchema = typeof userSchema,
-  TTokenSchema extends typeof tokenSchema = typeof tokenSchema,
+  TUser extends Record<string, any>,
+  TUserSchema extends PgTableWithColumns<any> = typeof userSchema,
+  TTokenSchema extends PgTableWithColumns<any> = typeof tokenSchema,
 >(
   ORMOptions: ORMOptions<TUser, TUserSchema, TTokenSchema>,
 ) => {
@@ -91,11 +93,8 @@ export const elysiaAuthDrizzlePlugin = <
       break;
   }
 
-  // const plugin = new Elysia({ name: 'elysia-auth-drizzle' })
-
-  // 注册 derive 钩子，自动注入登录态和用户信息
-  return async (app: Elysia) => {
-    app.derive(
+  const plugin = new Elysia({ name: 'elysia-auth-drizzle' })
+    .derive(
       { as: "global" },
       async ({ headers, query, cookie, request }) => {
         // 是否已登录
@@ -160,6 +159,8 @@ export const elysiaAuthDrizzlePlugin = <
       },
     );
 
-    return app;
-  };
+  // 注册 derive 钩子，自动注入登录态和用户信息
+
+
+  return plugin;
 };

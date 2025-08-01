@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { eq } from "drizzle-orm";
+import { eq, Table } from "drizzle-orm";
 import type { Cookie } from "elysia";
 import { verify } from "jsonwebtoken";
 import { Unauthorized } from "unify-errors";
 import type { GetTokenOptions, ORMOptions } from "./config";
 import type { tokenSchema, userSchema } from "./db/shema";
 import type { UrlConfig, HTTPMethods } from "./currentUrlAndMethodIsAllowed";
+import { PgTableWithColumns } from "drizzle-orm/pg-core";
 
 
 
@@ -142,11 +143,11 @@ export const getAccessTokenFromRequest = async (
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
 export const checkTokenValidity =
-  <TUser, U extends typeof userSchema, O extends typeof tokenSchema>(
+  <TUser, TUserSchema extends PgTableWithColumns<any>, TTokenSchema extends PgTableWithColumns<any>>(
     jwtSecret: string,
     verifyAccessTokenOnlyInJWT: boolean,
-    drizzle: ORMOptions<TUser, U, O>["drizzle"],
-    userValidation: ORMOptions<TUser, U, O>["userValidation"],
+    drizzle: ORMOptions<TUser, TUserSchema, TTokenSchema>["drizzle"],
+    userValidation: ORMOptions<TUser, TUserSchema, TTokenSchema>["userValidation"],
     publicUrlConfig: UrlConfig[],
     currentUrl: string,
     currentMethod: HTTPMethods,

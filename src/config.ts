@@ -1,11 +1,12 @@
 
+import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 import type { UrlConfig } from "./currentUrlAndMethodIsAllowed";
 import type { tokenSchema, userSchema } from "./db/shema";
 
 export type ORMOptions<
   TUser,
-  TUsersSchema extends typeof userSchema,
-  TTokensSchema extends typeof tokenSchema,
+  TUsersSchema extends PgTableWithColumns<any> = typeof userSchema,
+  TTokensSchema extends PgTableWithColumns<any> = typeof tokenSchema
 > = {
   drizzle: {
     db: any;
