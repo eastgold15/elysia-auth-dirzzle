@@ -143,7 +143,7 @@ export const getAccessTokenFromRequest = async (
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
 export const checkTokenValidity =
-  <TUser, TUserSchema extends PgTableWithColumns<any>, TTokenSchema extends PgTableWithColumns<any>>(
+  <TUser, TUserSchema, TTokenSchema>(
     jwtSecret: string,
     verifyAccessTokenOnlyInJWT: boolean,
     drizzle: ORMOptions<TUser, TUserSchema, TTokenSchema>["drizzle"],
@@ -172,6 +172,7 @@ export const checkTokenValidity =
           const result = await drizzle.db
             .select()
             .from(drizzle.tokensSchema)
+            //@ts-ignore
             .where(eq(drizzle.tokensSchema.accessToken, tokenValue))
             .limit(1);
 
@@ -211,6 +212,7 @@ export const checkTokenValidity =
       const userResult = await drizzle.db
         .select()
         .from(drizzle.usersSchema)
+         //@ts-ignore
         .where(eq(drizzle.usersSchema.id, userId))
         .limit(1);
 

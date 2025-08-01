@@ -5,8 +5,8 @@ import type { tokenSchema, userSchema } from "./db/shema";
 
 export type ORMOptions<
   TUser,
-  TUsersSchema extends PgTableWithColumns<any> = typeof userSchema,
-  TTokensSchema extends PgTableWithColumns<any> = typeof tokenSchema
+  TUsersSchema extends any = typeof userSchema,
+  TTokensSchema extends any = typeof tokenSchema
 > = {
   drizzle: {
     db: any;

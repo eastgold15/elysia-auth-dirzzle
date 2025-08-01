@@ -43,8 +43,8 @@ export {
  */
 export const elysiaAuthDrizzlePlugin = <
   TUser extends Record<string, any>,
-  TUserSchema extends PgTableWithColumns<any> = typeof userSchema,
-  TTokenSchema extends PgTableWithColumns<any> = typeof tokenSchema,
+  TUserSchema extends any = typeof userSchema,
+  TTokenSchema extends any = typeof tokenSchema,
 >(
   ORMOptions: ORMOptions<TUser, TUserSchema, TTokenSchema>,
 ) => {

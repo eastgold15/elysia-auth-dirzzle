@@ -18,7 +18,25 @@ const db = drizzle(process.env.DATABASE_URL!);
 
 // 创建Elysia应用并使用认证插件
 const app = new Elysia()
-  
+  .use(elysiaAuthDrizzlePlugin({
+    jwtSecret: 'your-jwt-secret-key',
+    cookieSecret: 'your-cookie-secret-key',
+    drizzle: {
+      db,
+      usersSchema: userSchema,
+      tokensSchema: tokenSchema,
+    },
+    getTokenFrom: {
+      from: 'header', // 从请求头获取token
+      headerName: 'authorization',
+    },
+    PublicUrlConfig: [
+      { url: '/', method: '*' },
+      { url: '/register', method: '*' },
+      { url: '/login', method: '*' },
+    ],
+  }))
+
   // .use(
   //   await elysiaAuthDrizzlePlugin({
   //     jwtSecret: 'your-jwt-secret-key',
