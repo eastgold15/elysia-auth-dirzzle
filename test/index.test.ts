@@ -216,9 +216,9 @@ describe("Elysia Auth Drizzle Plugin", () => {
 			const decoded = verify(token, testConfig.jwtSecret);
 
 			expect(decoded).toBeDefined();
-			// @ts-ignore
+			// @ts-expect-error
 			expect(decoded.id).toBe("user123");
-			// @ts-ignore
+			// @ts-expect-error
 			expect(decoded.email).toBe("test@example.com");
 		});
 
@@ -294,7 +294,7 @@ describe("Elysia Auth Drizzle Plugin", () => {
 	describe("Error Handling", () => {
 		it("should throw error for invalid cookie value type", async () => {
 			expect(async () => {
-				// @ts-ignore - 故意传入错误类型进行测试
+				// @ts-expect-error - 故意传入错误类型进行测试
 				await signCookie(123, "secret");
 			}).toThrow();
 		});
@@ -307,7 +307,7 @@ describe("Elysia Auth Drizzle Plugin", () => {
 
 		it("should throw error for invalid input type in unsignCookie", async () => {
 			expect(async () => {
-				// @ts-ignore - 故意传入错误类型进行测试
+				// @ts-expect-error - 故意传入错误类型进行测试
 				await unsignCookie(123, "secret");
 			}).toThrow();
 		});

@@ -4,163 +4,164 @@
  *
  * @description 提供完整的身份验证解决方案，包括JWT令牌管理、用户验证、权限控制等功能
  * @author 原作者改版而来
- * @version 1.0.0
+ * @version 1.1.0
  */
 
+import { InvalidCredentialsError } from "@pori15/elysia-unified-errors";
 import Elysia from "elysia";
-import { Unauthorized } from "unify-errors";
+import { currentUrlAndMethodIsAllowed, type HTTPMethods } from "./authGuard";
 import type { ORMOptions } from "./config";
-import { currentUrlAndMethodIsAllowed, type HTTPMethods } from "./currentUrlAndMethodIsAllowed";
-
 import type { tokenSchema, userSchema } from "./db/shema";
 import {
-  checkTokenValidity,
-  getAccessTokenFromRequest,
+	checkTokenValidity,
+	getAccessTokenFromRequest,
 } from "./elysia-auth-plugin";
-import { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { BaseUser } from "./types";
 
-
+// === 统一错误处理导出 ===
+// 直接导出统一错误处理包的所有内容
+export * from "@pori15/elysia-unified-errors";
+export type {
+	HTTPMethods,
+	StringValue,
+	UrlConfig,
+} from "./authGuard";
 // === 辅助函数导出 ===
-export { currentUrlAndMethodIsAllowed } from "./currentUrlAndMethodIsAllowed";
+export { currentUrlAndMethodIsAllowed } from "./authGuard";
+// === 类型导出 ===
+export type {
+	GetTokenOptions,
+	ORMOptions,
+} from "./config";
 // === 核心插件导出 ===
 export {
-  checkTokenValidity,
-  getAccessTokenFromRequest,
-  signCookie,
-  unsignCookie
+	checkTokenValidity,
+	getAccessTokenFromRequest,
+	signCookie,
+	unsignCookie,
 } from "./elysia-auth-plugin";
+export type {
+	AuthResult,
+	BaseToken,
+	BaseUser,
+	DrizzleConfig,
+	JWTPayload,
+	TokenResult,
+} from "./types";
 // === 工具函数导出 ===
 export {
-  createUserToken,
-  refreshUserToken,
-  removeAllUserTokens,
-  removeUserToken
+	createUserToken,
+	refreshUserToken,
+	removeAllUserTokens,
+	removeUserToken,
 } from "./utils";
 
 /**
  * Elysia 插件主入口，自动注入 isConnected/connectedUser 到 context
  * @param ORMOptions 插件配置
+ * @returns Elysia 插件实例
  */
 export const elysiaAuthDrizzlePlugin = <
-  TUser extends Record<string, any>,
-  TUserSchema extends any = typeof userSchema,
-  TTokenSchema extends any = typeof tokenSchema,
+	TUser extends BaseUser,
+	TUserSchema = typeof userSchema,
+	TTokenSchema = typeof tokenSchema,
 >(
-  ORMOptions: ORMOptions<TUser, TUserSchema, TTokenSchema>,
+	ORMOptions: ORMOptions<TUser, TUserSchema, TTokenSchema>,
 ) => {
-  // 拿到必选
-  const { drizzle, getTokenFrom } = ORMOptions;
+	// 拆解必需配置
+	const { drizzle, getTokenFrom } = ORMOptions;
 
-  // 给可选加上默认值
-  const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [
-    { url: "*/login", method: "POST" },
-    { url: "*/register", method: "POST" },
-  ];
-  const userValidation =
-    ORMOptions?.userValidation ?? ORMOptions.userValidation;
-  /**
-   * 校验token是否只在JWT中校验，默认false
-   */
-  const verifyAccessTokenOnlyInJWT =
-    ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
-  /**
-   *  插件路由前缀，默认/api/auth
-   */
-  const prefix = ORMOptions?.prefix ?? "/api/auth";
-  //
-  let jwtSecret = "";
-  let cookieSecret = "";
+	// 设置默认值
+	const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [
+		{ url: "*/login", method: "POST" },
+		{ url: "*/register", method: "POST" },
+	];
+	const userValidation = ORMOptions?.userValidation;
+	const verifyAccessTokenOnlyInJWT =
+		ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
+	const prefix = ORMOptions?.prefix ?? "/api/auth";
 
-  // 没有 jwtSecret 则打印
-  if (!ORMOptions.jwtSecret || !ORMOptions.cookieSecret) {
-    console.log(
-      "elysia-auth-drizzle-plugin: jwtSecret or cookieSecret is not defined",
-    );
-  }
-  // 根据getTokenFrom的form， 确定Secret的类型
-  switch (getTokenFrom.from) {
-    case "header":
-      jwtSecret = ORMOptions?.jwtSecret || "jwtSecret";
-      break;
-    case "cookie":
-      cookieSecret = ORMOptions?.cookieSecret || "cookieSecret";
-      jwtSecret = ORMOptions?.jwtSecret || "jwtSecret";
-      break;
-    case "query":
-      jwtSecret = ORMOptions?.jwtSecret || "jwtSecret";
-      break;
-    default:
-      break;
-  }
+	// 验证必需的密钥
+	const jwtSecret = ORMOptions?.jwtSecret;
+	const cookieSecret = ORMOptions?.cookieSecret;
 
-  const plugin = new Elysia({ name: 'elysia-auth-drizzle' })
-    .derive(
-      { as: "global" },
-      async ({ headers, query, cookie, request }) => {
-        // 是否已登录
-        let isConnected = false;
-        // 登录用户
-        let connectedUser: TUser | undefined;
+	if (!jwtSecret) {
+		throw new Error("elysia-auth-drizzle-plugin: jwtSecret is required");
+	}
 
-        // 组装请求对象
-        const req = {
-          headers,
-          query,
-          cookie,
-          url: new URL(request.url).pathname,
-          method: request.method as HTTPMethods,
-        };
+	if (getTokenFrom.from === "cookie" && !cookieSecret) {
+		throw new Error(
+			"elysia-auth-drizzle-plugin: cookieSecret is required when using cookie authentication",
+		);
+	}
 
-        // 根据getTokenFrom的值来结合惰性函数， 获取提取token的逻辑
+	const plugin = new Elysia({ name: "elysia-auth-drizzle" }).derive(
+		{ as: "global" },
+		async ({ headers, query, cookie, request }) => {
+			// 初始化登录状态
+			let isConnected = false;
+			let connectedUser: TUser | undefined;
 
-        // 提取 token
-        const tokenValue: string | undefined = await getAccessTokenFromRequest(
-          req,
-          getTokenFrom,
-          cookieSecret,
-        );
+			// 构建请求对象
+			const req = {
+				headers,
+				query,
+				cookie,
+				url: new URL(request.url).pathname,
+				method: request.method as HTTPMethods,
+			};
 
-        // 校验 token
-        const res = await checkTokenValidity<TUser, TUserSchema, TTokenSchema>(
-          jwtSecret,
-          verifyAccessTokenOnlyInJWT,
-          drizzle,
-          userValidation,
-          PublicUrlConfig,
-          req.url,
-          req.method,
-          req.cookie,
-        )(tokenValue);
+			try {
+				// 提取 token
+				const tokenValue = await getAccessTokenFromRequest(
+					req,
+					getTokenFrom,
+					cookieSecret || "",
+				);
 
-        if (res) {
-          connectedUser = res.connectedUser;
-          isConnected = res.isConnected;
-        }
+				// 校验 token
+				const authResult = await checkTokenValidity<
+					TUser,
+					TUserSchema,
+					TTokenSchema
+				>(
+					jwtSecret,
+					verifyAccessTokenOnlyInJWT,
+					drizzle,
+					userValidation,
+					PublicUrlConfig,
+					req.url,
+					req.method,
+					req.cookie,
+				)(tokenValue);
 
-        // 如果未登录且不是公开页面，抛出未授权
-        if (
-          !isConnected &&
-          (prefix ? req.url.startsWith(prefix) : true) &&
-          !currentUrlAndMethodIsAllowed(
-            req.url,
-            req.method as HTTPMethods,
-            PublicUrlConfig,
-          )
-        ) {
-          throw new Unauthorized({
-            error: "Page is not public",
-          });
-        }
-        // 注入 context
-        return {
-          isConnected,
-          connectedUser,
-        };
-      },
-    );
+				if (authResult) {
+					connectedUser = authResult.connectedUser;
+					isConnected = authResult.isConnected;
+				}
+			} catch (error) {
+				// 日志记录错误，但不抛出，由后续逻辑处理
+				console.warn("Token validation failed:", error);
+			}
 
-  // 注册 derive 钩子，自动注入登录态和用户信息
+			// 检查是否需要认证
+			const isProtectedRoute =
+				(prefix ? req.url.startsWith(prefix) : true) &&
+				!currentUrlAndMethodIsAllowed(req.url, req.method, PublicUrlConfig);
 
+			if (!isConnected && isProtectedRoute) {
+				throw new InvalidCredentialsError(
+					"Authentication required for this resource",
+				);
+			}
 
-  return plugin;
+			// 返回登录状态和用户信息
+			return {
+				isConnected,
+				connectedUser,
+			};
+		},
+	);
+
+	return plugin;
 };

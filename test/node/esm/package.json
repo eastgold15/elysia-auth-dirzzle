@@ -1,7 +1,0 @@
-{
-	"type": "module",
-	"dependencies": {
-		"@elysiajs/static": "../../..",
-		"@pori15/elysia-auth-drizzle": "file:../../.."
-	}
-}

@@ -3,6 +3,7 @@
 	"version": "1.0.50",
 	"type": "module",
 	"scripts": {
+		"predev": "bun run docker compose up ",
 		"dev": "bun run --watch src/index.ts"
 	},
 	"dependencies": {

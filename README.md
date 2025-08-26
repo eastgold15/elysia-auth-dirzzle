@@ -2,7 +2,7 @@
 
 一个为 Elysia 框架设计的强大认证插件，支持多种认证方式并与 Drizzle ORM 深度集成。
 
-[![npm version](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle.svg)](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle)
+[![npm version](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle.svg)](https://badge.fury.io/js/@pori15/elysia-auth-drizzle)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ 特性
@@ -15,6 +15,8 @@
 - 🔍 **自定义验证**：支持用户状态检查（如封禁、权限验证等）
 - ⚡ **高性能**：基于 Elysia 的高性能 Web 框架
 - 📝 **TypeScript 支持**：完整的类型定义和类型安全
+- 📋 **统一错误处理**：使用 @pori15/elysia-unified-errors 提供一致的错误响应
+- 📊 **详细日志记录**：集成 logixlysia 提供全面的日志记录功能
 
 ## 📦 安装
 
@@ -37,7 +39,7 @@ import { Elysia, t } from 'elysia'
 import { elysiaAuthDrizzlePlugin, createUserToken } from '@pori15/elysia-auth-drizzle'
 import { drizzle } from "drizzle-orm/bun-sql"
 import { eq } from 'drizzle-orm'
-import { tokenSchema, userSchema } from './db/schema'
+import { userSchema, tokenSchema } from './db/schema'
 
 const db = drizzle(process.env.DATABASE_URL!)
 
@@ -338,6 +340,54 @@ const originalValue = await unsignCookie(signedCookie, 'secret')
 // 检查 URL 是否为公共路由
 const isPublic = currentUrlAndMethodIsAllowed('/login', 'POST', publicRoutes)
 ```
+
+## 📋 统一错误处理
+
+本插件使用 `@pori15/elysia-unified-errors` 提供一致的错误响应格式：
+
+```typescript
+// 导出的所有错误类型
+import {
+  ExpiredTokenError,
+  InvalidTokenError,
+  UserNotFoundError,
+  InvalidCredentialsError,
+  ValidationError,
+  ResourceNotFoundError,
+  OperationFailedError
+} from '@pori15/elysia-auth-drizzle'
+
+// 错误响应格式
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_TOKEN",
+    "message": "Token is not valid",
+    "timestamp": "2023-01-01T00:00:00.000Z",
+    "requestId": "unique-request-id"
+  }
+}
+```
+
+## 📊 日志记录
+
+插件集成了 `logixlysia` 提供全面的日志记录功能：
+
+```typescript
+// 导入日志记录器
+import { authLogger, tokenLogger, dbLogger } from '@pori15/elysia-auth-drizzle/logger'
+
+// 使用日志记录器
+authLogger.info("User authenticated successfully", { userId: "123" })
+tokenLogger.warn("Token will expire soon", { tokenId: "abc" })
+dbLogger.error("Database query failed", new Error("Connection timeout"))
+```
+
+日志级别：
+- `debug` - 调试信息
+- `info` - 一般信息
+- `warn` - 警告信息
+- `error` - 错误信息
 
 ## 🧪 测试
 

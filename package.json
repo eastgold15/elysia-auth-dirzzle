@@ -23,7 +23,7 @@
 	},
 	"bugs": "https://github.com/eastgold15/elysia-auth-dirzzle/issues",
 	"homepage": "https://github.com/eastgold15/elysia-auth-dirzzle",
-	"version": "1.1.30",
+	"version": "1.2.0",
 	"keywords": [
 		"elysia",
 		"auth",
@@ -48,8 +48,10 @@
 		"release:publish": "bunx changelogen@latest --patch --release --push --publish"
 	},
 	"dependencies": {
+		"@pori15/elysia-unified-errors": "^1.0.0",
+		"@types/jsonwebtoken": "^9.0.10",
 		"jsonwebtoken": "^9.0.2",
-		"@types/jsonwebtoken": "^9.0.10"
+		"logixlysia": "^5.1.1"
 	},
 	"devDependencies": {
 		"bun-types": "latest",
