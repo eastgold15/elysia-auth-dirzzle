@@ -5,6 +5,12 @@
 
 import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 
+
+
+import type { userSchema } from "./db/shema";
+
+export type User = typeof userSchema.$inferSelect;
+
 /**
  * 数据库实例类型
  */
@@ -17,33 +23,11 @@ export interface DatabaseInstance {
 }
 
 /**
- * 用户表类型
- */
-export interface UserSchema extends PgTableWithColumns<any> {
-	id: any;
-	username?: any;
-	email?: any;
-	password?: any;
-	[key: string]: any;
-}
-
-/**
- * 令牌表类型
- */
-export interface TokenSchema extends PgTableWithColumns<any> {
-	id: any;
-	accessToken: any;
-	refreshToken: any;
-	ownerId: any;
-	[key: string]: any;
-}
-
-/**
  * Drizzle 配置类型
  */
 export interface DrizzleConfig<
-	TUserSchema extends UserSchema = UserSchema,
-	TTokenSchema extends TokenSchema = TokenSchema,
+	TUserSchema ,
+	TTokenSchema 
 > {
 	db: DatabaseInstance;
 	usersSchema: TUserSchema;
@@ -58,30 +42,14 @@ export interface JWTPayload {
 	[key: string]: any;
 }
 
-/**
- * 用户类型基础接口
- */
-export interface BaseUser {
-	id: string | number;
-	[key: string]: any;
-}
 
-/**
- * 令牌类型基础接口
- */
-export interface BaseToken {
-	id: string | number;
-	accessToken: string;
-	refreshToken: string;
-	ownerId: string | number;
-	[key: string]: any;
-}
+
 
 /**
  * 认证结果类型
  */
-export interface AuthResult<TUser extends BaseUser> {
-	connectedUser: TUser;
+export interface AuthResult<T> {
+	connectedUser: T;
 	isConnected: true;
 }
 

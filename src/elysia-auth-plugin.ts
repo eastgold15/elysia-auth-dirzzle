@@ -5,11 +5,12 @@ import {
 	UserNotFoundError,
 } from "@pori15/elysia-unified-errors";
 import { eq } from "drizzle-orm";
-import type { Cookie } from "elysia";
+import type { Cookie, HTTPMethod } from "elysia";
 import jwt from "jsonwebtoken";
-import type { HTTPMethods, UrlConfig } from "./authGuard";
+import type { UrlConfig } from "./authGuard";
 import type { GetTokenOptions, ORMOptions } from "./config";
 import { authLogger, tokenLogger } from "./logger";
+import type { User } from "./types";
 
 // REF: https://github.com/elysiajs/elysia/blob/main/src/utils.ts
 const encoder = new TextEncoder();
@@ -148,31 +149,28 @@ export const getAccessTokenFromRequest = async (
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
 export const checkTokenValidity =
-	<TUser extends import("./types").BaseUser, TUserSchema, TTokenSchema>(
+	<TUserSchema, TTokenSchema>(
 		jwtSecret: string,
 		verifyAccessTokenOnlyInJWT: boolean,
-		drizzle: ORMOptions<TUser, TUserSchema, TTokenSchema>["drizzle"],
-		userValidation: ORMOptions<
-			TUser,
-			TUserSchema,
-			TTokenSchema
-		>["userValidation"],
+		drizzle: ORMOptions<TUserSchema, TTokenSchema>["drizzle"],
+		userValidation: ORMOptions<TUserSchema, TTokenSchema>["userValidation"],
 		publicUrlConfig: UrlConfig[],
 		currentUrl: string,
-		currentMethod: HTTPMethods,
+		currentMethod: HTTPMethod,
 		cookieManager: { [x: string]: { remove: () => void } },
 	) =>
 	async (
 		tokenValue?: string,
-	): Promise<{ connectedUser: TUser; isConnected: true } | undefined> => {
+	): Promise<
+		{ connectedUser: User; isConnected: true } | undefined | Error
+	> => {
 		// 检查 token 是否存在
 		if (!tokenValue) {
 			authLogger.debug("No token provided", {
 				url: currentUrl,
 				method: currentMethod,
 			});
-			// 如果没有 token，且是公开路由，可以继续；否则应该已经由上层控制
-			return;
+			return new Error("No token provided");
 		}
 
 		authLogger.debug("Starting token validation", {
@@ -264,7 +262,7 @@ export const checkTokenValidity =
 		// 可选的自定义用户校验
 		if (userValidation) {
 			try {
-				await userValidation(user as TUser);
+				await userValidation(user as User);
 			} catch (validationError) {
 				authLogger.error("User validation failed", {
 					userId: user.id,
@@ -275,7 +273,7 @@ export const checkTokenValidity =
 		}
 
 		return {
-			connectedUser: user as TUser,
+			connectedUser: user as User,
 			isConnected: true,
 		};
 	};

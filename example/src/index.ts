@@ -1,163 +1,79 @@
 // 使用npm包方式导入（需要先构建和安装包）
 
+import { eq } from "drizzle-orm";
 import { Elysia } from "elysia";
+import { elysiaAuthDrizzlePlugin } from "../../src";
+import { db } from "./db";
+import { tokenSchema, userSchema } from "./db/schema";
 
-import "dotenv/config";
+// 创建 Elysia 应用
+const app = new Elysia();
 
-import { elysiaAuthDrizzlePlugin } from "@pori15/elysia-auth-drizzle";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { tokenSchema, userSchema } from "./db/schema.js";
+// 使用认证插件
+app.use(
+	elysiaAuthDrizzlePlugin({
+		drizzle: {
+			db,
+			usersSchema: userSchema,
+			tokensSchema: tokenSchema,
+		},
+		getTokenFrom: {
+			from: "header",
+		},
+		jwtSecret: "my-jwt-secret",
+		cookieSecret: "my-cookie-secret",
+		PublicUrlConfig: [
+			{ url: "/login", method: "POST" },
+			{ url: "/register", method: "POST" },
+		],
+		// 用户验证示例 - 现在可以正确获取用户类型
+		userValidation: async (user) => {
+			// 现在 TypeScript 可以正确推断 user 的类型
+			console.log("User ID:", user.id);
+			console.log("Username:", user.username);
 
-const db = drizzle(process.env.DATABASE_URL || "postgres://localhost/mydb");
-
-// 创建Elysia应用并使用认证插件
-const app = new Elysia()
-	.use(
-		elysiaAuthDrizzlePlugin({
-			jwtSecret: "your-jwt-secret-key",
-			cookieSecret: "your-cookie-secret-key",
-			drizzle: {
-				db,
-				usersSchema: userSchema,
-				tokensSchema: tokenSchema,
-			},
-			getTokenFrom: {
-				from: "header", // 从请求头获取token
-				headerName: "authorization",
-			},
-			PublicUrlConfig: [
-				{ url: "/", method: "*" },
-				{ url: "/register", method: "*" },
-				{ url: "/login", method: "*" },
-			],
-		}),
-	)
-
-	// .use(
-	//   await elysiaAuthDrizzlePlugin({
-	//     jwtSecret: 'your-jwt-secret-key',
-	//     cookieSecret: 'your-cookie-secret-key',
-	//     drizzle: {
-	//       db,
-	//       usersSchema: userSchema,
-	//       tokensSchema: tokenSchema,
-	//     },
-	//     getTokenFrom: {
-	//       from: 'header', // 从请求头获取token
-	//       headerName: 'authorization',
-	//     },
-	//     PublicUrlConfig: [
-	//       { url: '/', method: '*' },
-	//       { url: '/register', method: '*' },
-	//       { url: '/login', method: '*' },
-	//     ],
-	//   })
-	// )
-
-	// .post(
-	//   "/register",
-	//   async ({ body: { username, password } }) => {
-	//     console.log(username);
-
-	//     try {
-	//       const user = await db
-	//         .select()
-	//         .from(userSchema)
-	//         .where(eq(userSchema.username, username));
-	//       console.log(user);
-	//       if (user.length > 0) {
-	//         return {
-	//           code: 1,
-	//           msg: "用户名已存在",
-	//         };
-	//       }
-	//       const res = await db
-	//         .insert(userSchema)
-	//         .values({
-	//           username,
-	//           password,
-	//         })
-	//         .returning({
-	//           id: userSchema.id,
-	//           username: userSchema.username,
-	//         });
-
-	//       return res;
-	//     } catch (error) {
-	//       console.log(error);
-	//     }
-	//   },
-	//   {
-	//     body: t.Object({
-	//       username: t.String(),
-	//       password: t.Any(),
-	//     }),
-	//   },
-	// )
-	// .post(
-	//   "/login",
-	//   async ({ body: { username, password } }) => {
-	//     console.log(username, password);
-	//     try {
-	//       const user = await db
-	//         .select()
-	//         .from(userSchema)
-	//         .where(eq(userSchema.username, username));
-	//       console.log(userSchema);
-	//       if (userSchema.length === 0) {
-	//         return {
-	//           code: 1,
-	//           msg: "用户名不存在",
-	//         };
-	//       }
-	//       console.log("username", user[0]);
-	//       if (+user[0].password !== password) {
-	//         return {
-	//           code: 2,
-	//           msg: "密码错误",
-	//         };
-	//       }
-	//       const token = createUserToken({
-	//         db,
-	//         usersSchema: userSchema,
-	//         tokensSchema: tokenSchema,
-	//       });
-	//       const str = await token("" + user[0].id, {
-	//         secret: "your-jwt-secret-key", // 使用与插件配置相同的secret
-	//         accessTokenTime: "12h", // 修正时间格式
-	//         refreshTokenTime: "1d",
-	//       });
-
-	//       return str;
-	//     } catch (error) {
-	//       console.log(error);
-	//     }
-	//   },
-	//   {
-	//     body: t.Object({
-	//       username: t.String(),
-	//       password: t.Any(),
-	//     }),
-	//   },
-	// )
-	// // 添加路由
-	// .get("/", ({ isConnected, connectedUser }) => {
-	//   console.log(isConnected, connectedUser);
-	//   return {
-	//     isConnected,
-	//     connectedUser,
-	//   };
-	// })
-	// .get("/test", ({ isConnected, connectedUser }) => {
-	//   console.log(isConnected, connectedUser);
-	//   return {
-	//     isConnected,
-	//     connectedUser,
-	//   };
-	// })
-
-	.listen(3007);
-
-console.log(
-	`🔐 Auth server is running at http://${app.server?.hostname}:${app.server?.port}`,
+			// 检查用户是否被禁用等
+			if (user.username === "banned") {
+				throw new Error("User is banned");
+			}
+		},
+	}),
 );
+
+// 受保护的路由 - 现在可以正确获取 connectedUser 的类型
+app.get("/profile", ({ connectedUser }) => {
+	if (!connectedUser) {
+		return "Not authenticated";
+	}
+
+	// TypeScript 现在可以正确推断 connectedUser 的类型
+	return {
+		id: connectedUser.id,
+		username: connectedUser.username,
+		createdAt: connectedUser.createdAt,
+	};
+});
+
+// 登录路由示例
+app.post("/login", async ({ body }) => {
+	// @ts-expect-error - 示例代码
+	const { username, password } = body;
+
+	// 查找用户
+	const users = await db
+		.select()
+		.from(userSchema)
+		.where(eq(userSchema.username, username));
+	const user = users[0];
+
+	if (!user || user.password !== password) {
+		return { error: "Invalid credentials" };
+	}
+
+	// 创建令牌的示例代码...
+	return { message: "Login successful" };
+});
+
+app.listen(3000, () => {
+	console.log("Server running on port 3000");
+});

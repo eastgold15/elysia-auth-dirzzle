@@ -31,6 +31,10 @@ export const userSchema = pgTable(
 	}),
 );
 
+export type UserSchema = typeof userSchema;
+
+export type TokenSchema = typeof tokenSchema;
+
 export const usersRelations = relations(userSchema, ({ many }) => ({
 	tokens: many(tokenSchema),
 }));

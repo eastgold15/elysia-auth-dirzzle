@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { NotFoundError } from "elysia";
 import jwt from "jsonwebtoken";
 import type { StringValue } from "./authGuard";
+import type { TokenSchema, UserSchema } from "./db/shema";
 import { tokenLogger } from "./logger";
 import type { DrizzleConfig, TokenResult } from "./types";
 
@@ -18,8 +19,8 @@ import type { DrizzleConfig, TokenResult } from "./types";
  * @returns 创建令牌的异步函数
  */
 export const createUserToken =
-	<TUserSchema, TTokenSchema>(config: {
-		db: DrizzleConfig["db"];
+	<TUserSchema extends UserSchema, TTokenSchema>(config: {
+		db: any;
 		usersSchema: TUserSchema;
 		tokensSchema?: TTokenSchema;
 	}) =>
@@ -53,7 +54,8 @@ export const createUserToken =
 			user = await db
 				.select()
 				.from(usersSchema)
-				.where(eq(usersSchema.id, userId))
+
+				.where(eq(usersSchema.id, +userId))
 				.limit(1);
 
 			if (user.length === 0) {
@@ -111,8 +113,8 @@ export const createUserToken =
  * @returns 移除令牌的异步函数
  */
 export const removeUserToken =
-	<TTokenSchema>(config: {
-		db: DrizzleConfig["db"];
+	<TTokenSchema extends TokenSchema>(config: {
+		db: any;
 		tokensSchema: TTokenSchema;
 	}) =>
 	async (accessToken: string): Promise<void> => {
@@ -138,8 +140,8 @@ export const removeUserToken =
  * @returns 移除所有令牌的异步函数
  */
 export const removeAllUserTokens =
-	<TTokenSchema>(config: {
-		db: DrizzleConfig["db"];
+	<TTokenSchema extends TokenSchema>(config: {
+		db: any;
 		tokensSchema: TTokenSchema;
 	}) =>
 	async (ownerId: string): Promise<void> => {
@@ -150,7 +152,7 @@ export const removeAllUserTokens =
 		const { db, tokensSchema } = config;
 
 		try {
-			await db.delete(tokensSchema).where(eq(tokensSchema.ownerId, ownerId));
+			await db.delete(tokensSchema).where(eq(tokensSchema.ownerId, +ownerId));
 		} catch (error) {
 			console.error("Failed to remove all user tokens:", error);
 			throw new OperationFailedError("Failed to remove all user tokens");
@@ -163,18 +165,13 @@ export const removeAllUserTokens =
  * @returns 刷新令牌的异步函数
  */
 export const refreshUserToken =
-	(
-		//@ts-expect-error
-		{
-			db,
-			tokensSchema,
-		}: {
-			//@ts-expect-error
-			db; // drizzle-orm数据库实例
-			//@ts-expect-error
-			tokensSchema?; // 令牌表模式（可选）
-		},
-	) =>
+	<TTokenSchema extends TokenSchema>({
+		db,
+		tokensSchema,
+	}: {
+		db: any;
+		tokensSchema: TTokenSchema;
+	}) =>
 	async (
 		refreshToken: string,
 		{

@@ -10,30 +10,31 @@ import { createLogger } from "logixlysia";
  */
 const logger = createLogger();
 
-const fakeRequest = {
-	method: "@pori15/elysia-auth-drizzle",
-	url: "internal://xx",
-	headers: { get: (_key) => null },
-};
-
 /**
  * 创建带有标签的日志记录器
  */
 export const createLoggerWithTag = (tag: string) => {
-	return {
-		info: (message: string, data?: any) => {
-			logger.info(fakeRequest, `[${tag}] ${message}`, data);
-		},
-		warn: (message: string, data?: any) => {
-			logger.warn(fakeRequest, `[${tag}] ${message}`, data);
-		},
-		error: (message: string, error?: any) => {
-			logger.error(fakeRequest, `[${tag}] ${message}`, error);
-		},
-		debug: (message: string, data?: any) => {
-			logger.debug(fakeRequest, `[${tag}] ${message}`, data);
-		},
-	};
+  // 创建一个假的请求对象，用于 logixlysia
+  const fakeRequest = {
+    method: "@pori15/elysia-auth-drizzle",
+    url: `internal://${tag.toLowerCase()}`,
+    headers: { get: (_key: string) => null }
+  };
+  
+  return {
+    info: (message: string, data?: any) => {
+      logger.info(fakeRequest, `[${tag}] ${message}`, data);
+    },
+    warn: (message: string, data?: any) => {
+      logger.warn(fakeRequest, `[${tag}] ${message}`, data);
+    },
+    error: (message: string, error?: any) => {
+      logger.error(fakeRequest, `[${tag}] ${message}`, error);
+    },
+    debug: (message: string, data?: any) => {
+      logger.debug(fakeRequest, `[${tag}] ${message}`, data);
+    }
+  };
 };
 
 /**

@@ -1,24 +1,8 @@
-export type HTTPMethods =
-	| "DELETE"
-	| "GET"
-	| "HEAD"
-	| "PATCH"
-	| "POST"
-	| "PUT"
-	| "OPTIONS"
-	| "PROPFIND"
-	| "PROPPATCH"
-	| "MKCOL"
-	| "COPY"
-	| "MOVE"
-	| "LOCK"
-	| "UNLOCK"
-	| "TRACE"
-	| "SEARCH";
+import type { HTTPMethod } from "elysia";
 
 export interface UrlConfig {
 	url: string;
-	method: HTTPMethods | "*";
+	method: HTTPMethod | "*";
 }
 
 type Unit =
@@ -64,23 +48,42 @@ export type StringValue =
 /**
  * 支持的HTTP方法列表
  */
-const methods: HTTPMethods[] = [
+const methods: HTTPMethod[] = [
+	"ACL",
+	"BIND",
+	"CHECKOUT",
+	"CONNECT",
+	"COPY",
 	"DELETE",
 	"GET",
 	"HEAD",
+	"LINK",
+	"LOCK",
+	"M-SEARCH",
+	"MERGE",
+	"MKACTIVITY",
+	"MKCALENDAR",
+	"MKCOL",
+	"MOVE",
+	"NOTIFY",
+	"OPTIONS",
 	"PATCH",
 	"POST",
-	"PUT",
-	"OPTIONS",
 	"PROPFIND",
 	"PROPPATCH",
-	"MKCOL",
-	"COPY",
-	"MOVE",
-	"LOCK",
-	"UNLOCK",
-	"TRACE",
+	"PURGE",
+	"PUT",
+	"REBIND",
+	"REPORT",
 	"SEARCH",
+	"SOURCE",
+	"SUBSCRIBE",
+	"TRACE",
+	"UNBIND",
+	"UNLINK",
+	"UNLOCK",
+	"UNSUBSCRIBE",
+	"ALL",
 ] as const;
 
 /**
@@ -92,7 +95,7 @@ const methods: HTTPMethods[] = [
  */
 const addUrl = (
 	u: string,
-	m: HTTPMethods | "*",
+	m: HTTPMethod | "*",
 	urls: UrlConfig[],
 ): UrlConfig[] => {
 	if (m === "*") {
@@ -102,7 +105,7 @@ const addUrl = (
 		}
 	} else {
 		// 否则只添加指定方法的配置
-		urls.push({ url: u, method: m as HTTPMethods });
+		urls.push({ url: u, method: m as HTTPMethod });
 	}
 
 	return urls;
@@ -123,7 +126,7 @@ const addUrl = (
  */
 export const currentUrlAndMethodIsAllowed = (
 	url: string,
-	method: HTTPMethods,
+	method: HTTPMethod,
 	config: UrlConfig[],
 ): boolean => {
 	let urlsConfig: UrlConfig[] = [];

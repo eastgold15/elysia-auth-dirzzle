@@ -2,7 +2,7 @@
 
 一个为 Elysia 框架设计的强大认证插件，支持多种认证方式并与 Drizzle ORM 深度集成。
 
-[![npm version](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle.svg)](https://badge.fury.io/js/@pori15/elysia-auth-drizzle)
+[![npm version](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle.svg)](https://badge.fury.io/js/@pori15%2Felysia-auth-drizzle)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## ✨ 特性
@@ -15,8 +15,6 @@
 - 🔍 **自定义验证**：支持用户状态检查（如封禁、权限验证等）
 - ⚡ **高性能**：基于 Elysia 的高性能 Web 框架
 - 📝 **TypeScript 支持**：完整的类型定义和类型安全
-- 📋 **统一错误处理**：使用 @pori15/elysia-unified-errors 提供一致的错误响应
-- 📊 **详细日志记录**：集成 logixlysia 提供全面的日志记录功能
 
 ## 📦 安装
 
@@ -39,14 +37,13 @@ import { Elysia, t } from 'elysia'
 import { elysiaAuthDrizzlePlugin, createUserToken } from '@pori15/elysia-auth-drizzle'
 import { drizzle } from "drizzle-orm/bun-sql"
 import { eq } from 'drizzle-orm'
-import { userSchema, tokenSchema } from './db/schema'
+import { tokenSchema, userSchema } from './db/schema'
 
 const db = drizzle(process.env.DATABASE_URL!)
 
 const app = new Elysia()
   .use(
     elysiaAuthDrizzlePlugin<
-      typeof userSchema.$inferSelect,
       typeof userSchema,
       typeof tokenSchema
     >({
@@ -159,7 +156,6 @@ import { userSchema, tokenSchema } from './schema' // 你的数据库 schema
 const app = new Elysia()
   .use(
     elysiaAuthDrizzlePlugin<
-      typeof userSchema.$inferSelect,
       typeof userSchema,
       typeof tokenSchema
     >({
@@ -200,6 +196,109 @@ const app = new Elysia()
   })
   .listen(3000)
 ```
+
+## 📚 类型安全
+
+本插件提供了完整的 TypeScript 类型支持，可以自动推断你的 Drizzle ORM 表结构类型。
+
+### 自动类型推断
+
+当你使用 Drizzle ORM 定义表结构时：
+
+```typescript
+// db/schema.ts
+import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+
+export const userSchema = pgTable('users', {
+  id: serial('id').primaryKey(),
+  username: text('username').notNull(),
+  email: text('email').notNull(),
+  password: text('password').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const tokenSchema = pgTable('tokens', {
+  id: serial('id').primaryKey(),
+  ownerId: integer('owner_id').references(() => userSchema.id),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+```
+
+插件会自动推断出这些表的类型，你可以在路由中直接使用：
+
+```typescript
+app.get('/profile', ({ connectedUser }) => {
+  // TypeScript 会自动知道 connectedUser 的类型
+  // 包含 id, username, email, password, createdAt 等字段
+  return {
+    id: connectedUser.id,
+    username: connectedUser.username,
+    email: connectedUser.email,
+    joinedAt: connectedUser.createdAt
+  }
+})
+```
+
+### 自定义用户类型
+
+如果你需要扩展用户类型，可以这样做：
+
+```typescript
+import { InferSelectModel } from 'drizzle-orm'
+import { userSchema } from './db/schema'
+
+// 从 Drizzle schema 推断用户类型
+type UserType = InferSelectModel<typeof userSchema>
+
+// 扩展用户类型
+interface CustomUser extends UserType {
+  permissions: string[]
+  role: string
+}
+
+// 在插件配置中使用自定义类型
+app.use(
+  elysiaAuthDrizzlePlugin<typeof userSchema, typeof tokenSchema>({
+    // ... 配置
+    userValidation: async (user: UserType) => {
+      // 在这里你可以访问所有用户字段的类型安全
+      console.log(user.id) // 类型安全
+      console.log(user.username) // 类型安全
+    }
+  })
+)
+```
+
+### 数据库实例类型
+
+插件会自动处理 Drizzle ORM 的数据库实例类型，你只需要提供正确的 schema：
+
+```typescript
+import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { userSchema, tokenSchema } from './db/schema'
+
+const db = drizzle(sqlite, { 
+  schema: { 
+    users: userSchema, 
+    tokens: tokenSchema 
+  } 
+})
+
+app.use(
+  elysiaAuthDrizzlePlugin({
+    drizzle: {
+      db, // 插件会自动识别 db 的类型
+      usersSchema: userSchema, // 用户表 schema
+      tokensSchema: tokenSchema // 令牌表 schema
+    },
+    // ... 其他配置
+  })
+)
+```
+
+通过这种方式，你可以在整个应用中获得完整的类型安全性，避免运行时错误并提高开发效率。
 
 ### 数据库 Schema 示例
 
@@ -341,54 +440,6 @@ const originalValue = await unsignCookie(signedCookie, 'secret')
 const isPublic = currentUrlAndMethodIsAllowed('/login', 'POST', publicRoutes)
 ```
 
-## 📋 统一错误处理
-
-本插件使用 `@pori15/elysia-unified-errors` 提供一致的错误响应格式：
-
-```typescript
-// 导出的所有错误类型
-import {
-  ExpiredTokenError,
-  InvalidTokenError,
-  UserNotFoundError,
-  InvalidCredentialsError,
-  ValidationError,
-  ResourceNotFoundError,
-  OperationFailedError
-} from '@pori15/elysia-auth-drizzle'
-
-// 错误响应格式
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_TOKEN",
-    "message": "Token is not valid",
-    "timestamp": "2023-01-01T00:00:00.000Z",
-    "requestId": "unique-request-id"
-  }
-}
-```
-
-## 📊 日志记录
-
-插件集成了 `logixlysia` 提供全面的日志记录功能：
-
-```typescript
-// 导入日志记录器
-import { authLogger, tokenLogger, dbLogger } from '@pori15/elysia-auth-drizzle/logger'
-
-// 使用日志记录器
-authLogger.info("User authenticated successfully", { userId: "123" })
-tokenLogger.warn("Token will expire soon", { tokenId: "abc" })
-dbLogger.error("Database query failed", new Error("Connection timeout"))
-```
-
-日志级别：
-- `debug` - 调试信息
-- `info` - 一般信息
-- `warn` - 警告信息
-- `error` - 错误信息
-
 ## 🧪 测试
 
 运行测试套件：
@@ -450,25 +501,3 @@ elysiaAuthDrizzlePlugin({
   PublicUrlConfig: publicRoutes
 })
 ```
-
-## 🤝 贡献
-
-欢迎贡献代码！请确保：
-
-1. 运行测试：`bun test`
-2. 遵循代码风格
-3. 添加适当的测试用例
-
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](LICENSE) 文件。
-
-## 🔗 相关链接
-
-- [Elysia 框架](https://elysiajs.com/)
-- [Drizzle ORM](https://orm.drizzle.team/)
-- [JWT.io](https://jwt.io/)
-
----
-
-如果这个项目对你有帮助，请给个 ⭐️ 支持一下！
