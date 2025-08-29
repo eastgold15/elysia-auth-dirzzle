@@ -13,25 +13,25 @@ import { Elysia } from "elysia";
 import { currentUrlAndMethodIsAllowed } from "./authGuard.js";
 
 import {
-	checkTokenValidity,
-	getAccessTokenFromRequest,
+  checkTokenValidity,
+  getAccessTokenFromRequest,
 } from "./elysia-auth-plugin.js";
 import type { ORMOptions } from "./types.js";
 
 // === 核心插件导出 ===
 export {
-	checkTokenValidity,
-	getAccessTokenFromRequest,
-	signCookie,
-	unsignCookie,
+  checkTokenValidity,
+  getAccessTokenFromRequest,
+  signCookie,
+  unsignCookie,
 } from "./elysia-auth-plugin.js";
 
 // === 工具函数导出 ===
 export {
-	createUserToken,
-	refreshUserToken,
-	removeAllUserTokens,
-	removeUserToken,
+  createUserToken,
+  refreshUserToken,
+  removeAllUserTokens,
+  removeUserToken,
 } from "./utils.js";
 
 /**
@@ -40,107 +40,112 @@ export {
  * @returns Elysia 插件实例
  */
 export const elysiaAuthDrizzlePlugin = <T extends ORMOptions>(
-	ORMOptions: T,
+  ORMOptions: T,
 ) => {
-	// 拆解必需配置
-	const { drizzle, getTokenFrom } = ORMOptions;
+  // 拆解必需配置
+  const { drizzle, getTokenFrom } = ORMOptions;
 
-	// 设置默认值
-	const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [
-		{ url: "*/login", method: "POST" },
-		{ url: "*/register", method: "POST" },
-	];
-	const userValidation = ORMOptions?.userValidation;
-	const verifyAccessTokenOnlyInJWT =
-		ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
+  type User = typeof ORMOptions.drizzle.usersSchema.$inferSelect;
 
-	// 验证必需的密钥
-	const jwtSecret = ORMOptions?.jwtSecret;
-	const cookieSecret = ORMOptions?.cookieSecret;
+  // 设置默认值
+  const PublicUrlConfig = ORMOptions?.PublicUrlConfig ?? [
+    { url: "*/login", method: "POST" },
+    { url: "*/register", method: "POST" },
+  ];
+  const userValidation = ORMOptions?.userValidation;
+  const verifyAccessTokenOnlyInJWT =
+    ORMOptions?.verifyAccessTokenOnlyInJWT ?? false;
 
-	if (!jwtSecret) {
-		throw new ConfigurationError(
-			"elysia-auth-drizzle-plugin: jwtSecret is required",
-		);
-	}
+  // 验证必需的密钥
+  const jwtSecret = ORMOptions?.jwtSecret;
+  const cookieSecret = ORMOptions?.cookieSecret;
 
-	if (getTokenFrom.from === "cookie" && !cookieSecret) {
-		throw new ConfigurationError(
-			"elysia-auth-drizzle-plugin: cookieSecret is required when using cookie authentication",
-		);
-	}
+  if (!jwtSecret) {
+    throw new ConfigurationError(
+      "elysia-auth-drizzle-plugin: jwtSecret is required",
+    );
+  }
 
-	return new Elysia({ name: "elysia-auth-drizzle" }).derive(
-		{ as: "global" },
-		async ({ headers, query, cookie, request }) => {
-			// 初始化登录状态
-			let isConnected = false;
-			let connectedUser: any | undefined;
+  if (getTokenFrom.from === "cookie" && !cookieSecret) {
+    throw new ConfigurationError(
+      "elysia-auth-drizzle-plugin: cookieSecret is required when using cookie authentication",
+    );
+  }
 
-			// 构建请求对象
-			const req = {
-				headers,
-				query,
-				cookie,
-				url: new URL(request.url).pathname,
-				method: request.method as HTTPMethod,
-			};
 
-			// 检查是否是公开路由
-			const isPublicRoute = currentUrlAndMethodIsAllowed(
-				req.url,
-				req.method,
-				PublicUrlConfig,
-			);
 
-			// 如果是公开路由，直接放行
-			if (isPublicRoute) {
-				return {
-					isConnected,
-					connectedUser,
-				};
-			}
 
-			try {
-				// 提取 token
-				const tokenValue = await getAccessTokenFromRequest(
-					req,
-					getTokenFrom,
-					cookieSecret || "",
-				);
+  return new Elysia({ name: "elysia-auth-drizzle" }).derive(
+    { as: "global" },
+    async ({ headers, query, cookie, request }) => {
+      // 初始化登录状态
+      let isConnected = false;
+      let connectedUser: User | undefined;
 
-				// 校验 token
-				const authResult = await checkTokenValidity<T>(
-					jwtSecret,
-					verifyAccessTokenOnlyInJWT,
-					drizzle,
-					userValidation,
-					PublicUrlConfig,
-					req.url,
-					req.method,
-					req.cookie,
-				)(tokenValue);
+      // 构建请求对象
+      const req = {
+        headers,
+        query,
+        cookie,
+        url: new URL(request.url).pathname,
+        method: request.method as HTTPMethod,
+      };
 
-				// 检查 authResult 是否为 Error 对象
-				if (authResult instanceof Error) {
-					// 处理错误情况
-					console.warn("Token validation error:", authResult.message);
-				} else if (authResult) {
-					// 成功获取用户信息
-					connectedUser = authResult.connectedUser;
-					isConnected = authResult.isConnected;
-				}
-			} catch (error) {
-				// 日志记录错误，但不抛出，由后续逻辑处理
-				console.warn("Token validation failed:", error);
-				throw error;
-			}
+      // 检查是否是公开路由
+      const isPublicRoute = currentUrlAndMethodIsAllowed(
+        req.url,
+        req.method,
+        PublicUrlConfig,
+      );
 
-			// 返回登录状态和用户信息
-			return {
-				isConnected,
-				connectedUser,
-			};
-		},
-	);
+      // 如果是公开路由，直接放行
+      if (isPublicRoute) {
+        return {
+          isConnected,
+          connectedUser,
+        };
+      }
+
+      try {
+        // 提取 token
+        const tokenValue = await getAccessTokenFromRequest(
+          req,
+          getTokenFrom,
+          cookieSecret || "",
+        );
+
+        // 校验 token
+        const authResult = await checkTokenValidity<T>(
+          jwtSecret,
+          verifyAccessTokenOnlyInJWT,
+          drizzle,
+          userValidation,
+          PublicUrlConfig,
+          req.url,
+          req.method,
+          req.cookie,
+        )(tokenValue);
+
+        // 检查 authResult 是否为 Error 对象
+        if (authResult instanceof Error) {
+          // 处理错误情况
+          console.warn("Token validation error:", authResult.message);
+        } else if (authResult) {
+          // 成功获取用户信息
+          connectedUser = authResult.connectedUser;
+          isConnected = authResult.isConnected;
+        }
+      } catch (error) {
+        // 日志记录错误，但不抛出，由后续逻辑处理
+        console.warn("Token validation failed:", error);
+        throw error;
+      }
+
+      // 返回登录状态和用户信息
+      return {
+        isConnected,
+        connectedUser,
+      };
+    },
+  );
 };

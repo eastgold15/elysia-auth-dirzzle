@@ -33,7 +33,7 @@ export const app = new Elysia()
   )
 
   // 受保护的路由 - 现在可以正确获取 connectedUser 的类型
-  .get("/profile", ({ connectedUser }) => {
+  .get("/profile", ({ connectedUser, isConnected }) => {
     if (!connectedUser) {
       return "Not authenticated";
     }
