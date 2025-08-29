@@ -1,57 +1,9 @@
 /**
  * 类型定义文件
- * 提供更好的类型安全性，减少 @ts-expect-error 的使用
+ * any 大法，数据库使用具体类型太麻烦了，一定要使用any
  */
 
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
-
-
-
-import type { userSchema } from "./db/shema";
-
-export type User = typeof userSchema.$inferSelect;
-
-/**
- * 数据库实例类型
- */
-export interface DatabaseInstance {
-	select: () => any;
-	insert: (table: any) => any;
-	update: (table: any) => any;
-	delete: (table: any) => any;
-	[key: string]: any;
-}
-
-/**
- * Drizzle 配置类型
- */
-export interface DrizzleConfig<
-	TUserSchema ,
-	TTokenSchema 
-> {
-	db: DatabaseInstance;
-	usersSchema: TUserSchema;
-	tokensSchema: TTokenSchema;
-}
-
-/**
- * JWT 有效载荷类型
- */
-export interface JWTPayload {
-	id: string | number;
-	[key: string]: any;
-}
-
-
-
-
-/**
- * 认证结果类型
- */
-export interface AuthResult<T> {
-	connectedUser: T;
-	isConnected: true;
-}
+import type { UrlConfig } from "./authGuard.js";
 
 /**
  * 令牌创建结果类型
@@ -59,4 +11,50 @@ export interface AuthResult<T> {
 export interface TokenResult {
 	accessToken: string;
 	refreshToken: string;
+}
+
+export interface ORMOptions {
+	/** Drizzle ORM 配置 */
+	drizzle: {
+		db: any;
+		usersSchema: any;
+		tokensSchema: any;
+	};
+
+	/** 令牌获取配置 */
+	getTokenFrom: GetTokenOptions;
+
+	// 可选配置
+	/** 公开URL配置，不需要认证的路由 */
+	PublicUrlConfig?: UrlConfig[];
+
+	/** 用户自定义验证函数 */
+	userValidation?: (user: any) => void | Promise<void>;
+
+	/** 是否仅在JWT中验证访问令牌（不查数据库） */
+	verifyAccessTokenOnlyInJWT?: boolean;
+
+	/** JWT 签名密钥 */
+	jwtSecret?: string;
+
+	/** Cookie 签名密钥 */
+	cookieSecret?: string;
+}
+
+/**
+ * Token 获取配置选项
+ * 支持三种获取方式：header、cookie、query
+ */
+export interface GetTokenOptions {
+	/** 从哪里获取 token */
+	from: "header" | "cookie" | "query";
+
+	/** Cookie 名称，默认 'authorization' */
+	cookieName?: string;
+
+	/** Header 名称，默认 'authorization' */
+	headerName?: string;
+
+	/** Query 参数名称，默认 'access_token' */
+	queryName?: string;
 }

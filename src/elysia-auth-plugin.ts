@@ -7,10 +7,10 @@ import {
 import { eq } from "drizzle-orm";
 import type { Cookie, HTTPMethod } from "elysia";
 import jwt from "jsonwebtoken";
-import type { UrlConfig } from "./authGuard";
-import type { GetTokenOptions, ORMOptions } from "./config";
-import { authLogger, tokenLogger } from "./logger";
-import type { User } from "./types";
+import type { UrlConfig } from "./authGuard.js";
+
+import { authLogger, tokenLogger } from "./logger.js";
+import type { GetTokenOptions, ORMOptions } from "./types.js";
 
 // REF: https://github.com/elysiajs/elysia/blob/main/src/utils.ts
 const encoder = new TextEncoder();
@@ -149,11 +149,11 @@ export const getAccessTokenFromRequest = async (
  * @returns 校验通过返回用户和登录态，否则抛出异常或返回void
  */
 export const checkTokenValidity =
-	<TUserSchema, TTokenSchema>(
+	<T extends ORMOptions = ORMOptions>(
 		jwtSecret: string,
 		verifyAccessTokenOnlyInJWT: boolean,
-		drizzle: ORMOptions<TUserSchema, TTokenSchema>["drizzle"],
-		userValidation: ORMOptions<TUserSchema, TTokenSchema>["userValidation"],
+		drizzle: T["drizzle"],
+		userValidation: T["userValidation"],
 		publicUrlConfig: UrlConfig[],
 		currentUrl: string,
 		currentMethod: HTTPMethod,
@@ -161,9 +161,7 @@ export const checkTokenValidity =
 	) =>
 	async (
 		tokenValue?: string,
-	): Promise<
-		{ connectedUser: User; isConnected: true } | undefined | Error
-	> => {
+	): Promise<{ connectedUser: any; isConnected: true } | undefined | Error> => {
 		// 检查 token 是否存在
 		if (!tokenValue) {
 			authLogger.debug("No token provided", {
@@ -190,7 +188,6 @@ export const checkTokenValidity =
 				const result = await drizzle.db
 					.select()
 					.from(drizzle.tokensSchema)
-					//@ts-expect-error
 					.where(eq(drizzle.tokensSchema.accessToken, tokenValue))
 					.limit(1);
 
@@ -249,7 +246,6 @@ export const checkTokenValidity =
 		const userResult = await drizzle.db
 			.select()
 			.from(drizzle.usersSchema)
-			//@ts-expect-error
 			.where(eq(drizzle.usersSchema.id, userId))
 			.limit(1);
 
@@ -262,7 +258,7 @@ export const checkTokenValidity =
 		// 可选的自定义用户校验
 		if (userValidation) {
 			try {
-				await userValidation(user as User);
+				await userValidation(user as any);
 			} catch (validationError) {
 				authLogger.error("User validation failed", {
 					userId: user.id,
@@ -273,7 +269,7 @@ export const checkTokenValidity =
 		}
 
 		return {
-			connectedUser: user as User,
+			connectedUser: user as any,
 			isConnected: true,
 		};
 	};

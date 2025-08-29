@@ -1,36 +1,34 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["ESNext", "DOM", "ScriptHost"],
-    "module": "ES2022",
-    "moduleResolution": "node",
-    "declaration": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "allowJs": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "useDefineForClassFields": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "types": [
-      "bun-types"
-    ]
-  },
-  "include": [
-    "src/**/*",
-    "test/**/*",
-    "example/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+	"extends": "@pori15/config/tsconfig/tsc.json",
+	// "compilerOptions": {
+	//   "target": "ES2020",
+	//   "lib": ["ESNext", "DOM", "ScriptHost"],
+	//   "module": "ES2022",
+	//   "moduleResolution": "node",
+	//   "declaration": true,
+	//   "noEmit": true,
+	//   "esModuleInterop": true,
+	//   "forceConsistentCasingInFileNames": true,
+	//   "strict": true,
+	//   "skipLibCheck": true,
+	//   "allowJs": true,
+	//   "allowSyntheticDefaultImports": true,
+	//   "resolveJsonModule": true,
+	//   "isolatedModules": true,
+	//   "useDefineForClassFields": true,
+	//   "exactOptionalPropertyTypes": true,
+	//   "noImplicitReturns": true,
+	//   "noFallthroughCasesInSwitch": true,
+	//   "noUncheckedIndexedAccess": true,
+	//   "noImplicitOverride": true,
+	//   "types": [
+	//     "bun-types"
+	//   ]
+	// },
+	// "include": [
+	//   "src/**/*",
+	//   "test/**/*",
+	//   "example/**/*"
+	// ],
+	"exclude": ["node_modules", "dist", "example/**"]
 }

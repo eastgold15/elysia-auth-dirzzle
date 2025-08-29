@@ -1,77 +1,77 @@
 {
-	"name": "@pori15/elysia-auth-drizzle",
-	"description": "Authentication plugin for Elysia using Drizzle ORM",
-	"author": {
-		"name": "pori",
-		"url": "https://github.com/eastgold15",
-		"email": "1960825664@qq.com"
-	},
-	"type": "module",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/eastgold15/elysia-auth-dirzzle"
-	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.cts",
-	"exports": {
-		"require": {
-			"types": "./dist/index.d.cts",
-			"default": "./dist/index.cjs"
-		},
-		"import": {
-			"types": "./dist/index.d.mts",
-			"default": "./dist/index.mjs"
-		}
-	},
-	"bugs": "https://github.com/eastgold15/elysia-auth-dirzzle/issues",
-	"homepage": "https://github.com/eastgold15/elysia-auth-dirzzle",
-	"version": "1.2.0",
-	"keywords": [
-		"elysia",
-		"auth",
-		"authentication",
-		"drizzle",
-		"jwt"
-	],
-	"files": [
-		"dist",
-		"package.json"
-	],
-	"license": "MIT",
-	"scripts": {
-		"dev": "bun run --hot example/index.ts",
-		"test": "bun test && npm run test:node",
-		"test:node": "npm install --prefix ./test/node/cjs/ && npm install --prefix ./test/node/esm/ && node ./test/node/cjs/index.js && node ./test/node/esm/index.js",
-		"build": "pkgroll",
-		"release": " npm publish --access public",
-		"release:patch": "bunx changelogen@latest --patch --release --push",
-		"release:minor": "bunx changelogen@latest --minor --release --push",
-		"release:major": "bunx changelogen@latest --major --release --push",
-		"release:publish": "bunx changelogen@latest --patch --release --push --publish"
-	},
-	"dependencies": {
-		"@pori15/elysia-unified-errors": "^1.0.1",
-		"@types/jsonwebtoken": "^9.0.10",
-		"@types/micromatch": "^4.0.9",
-		"jsonwebtoken": "^9.0.2",
-		"logixlysia": "^5.1.1",
-		"micromatch": "^4.0.8"
-	},
-	"devDependencies": {
-		"bun-types": "latest",
-		"changelogen": "^0.6.2",
-		"drizzle-kit": "^0.31.4",
-		"typescript": "^5.8.3",
-		"tsup": "^8.5.0",
-		"pkgroll": "^2.15.0"
-	},
-	"peerDependencies": {
-		"elysia": "latest",
-		"drizzle-orm": ">= ^0.44.4",
-		"drizzle-kit": ">= ^0.31.4",
-		"@bogeychan/elysia-logger": ">= ^0.1.8",
-		"unify-errors": ">= ^1.3.90",
-		"drizzle-typebox": ">^=0.3.3"
-	}
+  "name": "@pori15/elysia-auth-drizzle",
+  "description": "Authentication plugin for Elysia using Drizzle ORM",
+  "author": {
+    "name": "pori",
+    "url": "https://github.com/eastgold15",
+    "email": "1960825664@qq.com"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eastgold15/elysia-auth-dirzzle"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    "require": {
+      "types": "./dist/index.d.cts",
+      "default": "./dist/index.cjs"
+    },
+    "import": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "bugs": "https://github.com/eastgold15/elysia-auth-dirzzle/issues",
+  "homepage": "https://github.com/eastgold15/elysia-auth-dirzzle",
+  "version": "1.2.0",
+  "keywords": [
+    "elysia",
+    "auth",
+    "authentication",
+    "drizzle",
+    "jwt"
+  ],
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "dev": "bun run --hot example/index.ts",
+    "test": "bun test && npm run test:node",
+    "test:node": "npm install --prefix ./test/node/cjs/ && npm install --prefix ./test/node/esm/ && node ./test/node/cjs/index.js && node ./test/node/esm/index.js",
+    "build": "pkgroll",
+    "release": " npm publish --access public",
+    "release:patch": "bunx run build && bunx changelogen@latest --patch --release --push",
+    "release:minor": "bunx changelogen@latest --minor --release --push",
+    "release:major": "bunx changelogen@latest --major --release --push",
+    "release:publish": "bunx changelogen@latest --patch --release --push --publish"
+  },
+  "dependencies": {
+    "@pori15/elysia-unified-errors": "^1.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "logixlysia": "^5.1.1",
+    "micromatch": "^4.0.8",
+    "@types/micromatch": "^4.0.9",
+    "@types/jsonwebtoken": "^9.0.10"
+  },
+  "devDependencies": {
+    "@pori15/config": "^0.0.5",
+    "bun-types": "latest",
+    "changelogen": "^0.6.2",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.8.3",
+    "tsup": "^8.5.0",
+    "pkgroll": "^2.15.0"
+  },
+  "peerDependencies": {
+    "elysia": ">=^1.3.20",
+    "drizzle-orm": ">= ^0.44.4",
+    "drizzle-kit": ">= ^0.31.4",
+    "@bogeychan/elysia-logger": ">= ^0.1.8",
+    "drizzle-typebox": ">^=0.3.3"
+  }
 }

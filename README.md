@@ -22,128 +22,8 @@
 bun add @pori15/elysia-auth-drizzle
 ```
 
-或使用 npm：
-
-```bash
-npm install @pori15/elysia-auth-drizzle
-```
-
 ## 🚀 快速开始
 
-### 完整示例
-
-```typescript
-import { Elysia, t } from 'elysia'
-import { elysiaAuthDrizzlePlugin, createUserToken } from '@pori15/elysia-auth-drizzle'
-import { drizzle } from "drizzle-orm/bun-sql"
-import { eq } from 'drizzle-orm'
-import { tokenSchema, userSchema } from './db/schema'
-
-const db = drizzle(process.env.DATABASE_URL!)
-
-const app = new Elysia()
-  .use(
-    elysiaAuthDrizzlePlugin<
-      typeof userSchema,
-      typeof tokenSchema
-    >({
-      jwtSecret: 'your-jwt-secret-key',
-      cookieSecret: 'your-cookie-secret-key',
-      drizzle: {
-        db,
-        usersSchema: userSchema,
-        tokensSchema: tokenSchema,
-      },
-      getTokenFrom: {
-        from: 'header', // 从请求头获取token
-        headerName: 'authorization',
-      },
-      PublicUrlConfig: [
-        { url: '/', method: '*' },
-        { url: '/register', method: '*' },
-        { url: '/login', method: '*' },
-      ],
-    })
-  )
-  .post('/register', async ({ body: { username, password } }) => {
-    // 检查用户是否已存在
-    const existingUser = await db.select().from(userSchema)
-      .where(eq(userSchema.username, username))
-    
-    if (existingUser.length > 0) {
-      return { code: 1, msg: '用户名已存在' }
-    }
-    
-    // 创建新用户
-    const newUser = await db.insert(userSchema).values({
-      username,
-      password
-    }).returning({
-      id: userSchema.id,
-      username: userSchema.username
-    })
-    
-    return newUser
-  }, {
-    body: t.Object({
-      username: t.String(),
-      password: t.Any()
-    })
-  })
-  .post('/login', async ({ body: { username, password } }) => {
-    // 验证用户
-    const user = await db.select().from(userSchema)
-      .where(eq(userSchema.username, username))
-    
-    if (user.length === 0) {
-      return { code: 1, msg: '用户名不存在' }
-    }
-    
-    if (+user[0].password !== password) {
-      return { code: 2, msg: '密码错误' }
-    }
-    
-    // 创建token
-    const token = createUserToken({
-      db,
-      usersSchema: userSchema,
-      tokensSchema: tokenSchema
-    })
-    
-    const tokenResult = await token(
-      '' + user[0].id,
-      {
-        secret: 'your-jwt-secret-key',
-        accessTokenTime: '12h',
-        refreshTokenTime: '1d',
-      }
-    )
-    
-    return tokenResult
-  }, {
-    body: t.Object({
-      username: t.String(),
-      password: t.Any()
-    })
-  })
-  .get('/', ({ isConnected, connectedUser }) => {
-    return {
-      isConnected,
-      connectedUser
-    }
-  })
-  .get('/protected', ({ isConnected, connectedUser }) => {
-    if (!isConnected) {
-      return { error: 'Unauthorized' }
-    }
-    return { user: connectedUser }
-  })
-  .listen(3000)
-
-console.log(
-  `🔐 Auth server is running at http://${app.server?.hostname}:${app.server?.port}`
-)
-```
 
 ### 基本用法
 
@@ -151,14 +31,11 @@ console.log(
 import { Elysia } from 'elysia'
 import { elysiaAuthDrizzlePlugin } from '@pori15/elysia-auth-drizzle'
 import { db } from './db' // 你的 Drizzle 数据库实例
-import { userSchema, tokenSchema } from './schema' // 你的数据库 schema
+import { userSchema, tokenSchema } from './db/schema' // 你的数据库 schema
 
 const app = new Elysia()
   .use(
-    elysiaAuthDrizzlePlugin<
-      typeof userSchema,
-      typeof tokenSchema
-    >({
+    elysiaAuthDrizzlePlugin({
       // JWT 密钥
       jwtSecret: process.env.JWT_SECRET!,
       
@@ -197,108 +74,47 @@ const app = new Elysia()
   .listen(3000)
 ```
 
-## 📚 类型安全
-
-本插件提供了完整的 TypeScript 类型支持，可以自动推断你的 Drizzle ORM 表结构类型。
-
-### 自动类型推断
-
-当你使用 Drizzle ORM 定义表结构时：
+### 完整示例
 
 ```typescript
-// db/schema.ts
-import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
-
-export const userSchema = pgTable('users', {
-  id: serial('id').primaryKey(),
-  username: text('username').notNull(),
-  email: text('email').notNull(),
-  password: text('password').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-})
-
-export const tokenSchema = pgTable('tokens', {
-  id: serial('id').primaryKey(),
-  ownerId: integer('owner_id').references(() => userSchema.id),
-  accessToken: text('access_token').notNull(),
-  refreshToken: text('refresh_token').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-})
-```
-
-插件会自动推断出这些表的类型，你可以在路由中直接使用：
-
-```typescript
-app.get('/profile', ({ connectedUser }) => {
-  // TypeScript 会自动知道 connectedUser 的类型
-  // 包含 id, username, email, password, createdAt 等字段
-  return {
-    id: connectedUser.id,
-    username: connectedUser.username,
-    email: connectedUser.email,
-    joinedAt: connectedUser.createdAt
-  }
-})
-```
-
-### 自定义用户类型
-
-如果你需要扩展用户类型，可以这样做：
-
-```typescript
-import { InferSelectModel } from 'drizzle-orm'
-import { userSchema } from './db/schema'
-
-// 从 Drizzle schema 推断用户类型
-type UserType = InferSelectModel<typeof userSchema>
-
-// 扩展用户类型
-interface CustomUser extends UserType {
-  permissions: string[]
-  role: string
-}
-
-// 在插件配置中使用自定义类型
-app.use(
-  elysiaAuthDrizzlePlugin<typeof userSchema, typeof tokenSchema>({
-    // ... 配置
-    userValidation: async (user: UserType) => {
-      // 在这里你可以访问所有用户字段的类型安全
-      console.log(user.id) // 类型安全
-      console.log(user.username) // 类型安全
-    }
-  })
-)
-```
-
-### 数据库实例类型
-
-插件会自动处理 Drizzle ORM 的数据库实例类型，你只需要提供正确的 schema：
-
-```typescript
-import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { Elysia, t } from 'elysia'
+import { elysiaAuthDrizzlePlugin, createUserToken } from '@pori15/elysia-auth-drizzle'
+import { drizzle } from "drizzle-orm/bun-sql"
+import { eq } from 'drizzle-orm'
 import { userSchema, tokenSchema } from './db/schema'
 
-const db = drizzle(sqlite, { 
-  schema: { 
-    users: userSchema, 
-    tokens: tokenSchema 
-  } 
-})
+const db = drizzle(process.env.DATABASE_URL!)
 
-app.use(
-  elysiaAuthDrizzlePlugin({
-    drizzle: {
-      db, // 插件会自动识别 db 的类型
-      usersSchema: userSchema, // 用户表 schema
-      tokensSchema: tokenSchema // 令牌表 schema
-    },
-    // ... 其他配置
-  })
-)
+const app = new Elysia()
+  .use(
+    elysiaAuthDrizzlePlugin({
+      jwtSecret: 'your-jwt-secret-key',
+      cookieSecret: 'your-cookie-secret-key',
+      drizzle: {
+        db,
+        usersSchema: userSchema,
+        tokensSchema: tokenSchema,
+      },
+      getTokenFrom: {
+        from: 'header', // 从请求头获取token
+        headerName: 'authorization',
+      },
+      PublicUrlConfig: [
+        { url: '/', method: '*' },
+        { url: '/register', method: '*' },
+        { url: '/login', method: '*' },
+      ],
+    })
+  )
+  // ... 其他路由
+  .listen(3000)
 ```
 
-通过这种方式，你可以在整个应用中获得完整的类型安全性，避免运行时错误并提高开发效率。
+
+
+
+
+
 
 ### 数据库 Schema 示例
 
@@ -326,16 +142,16 @@ export const tokens = pgTable('tokens', {
 
 ## 🔧 配置选项
 
-| 参数 | 类型 | 默认值 | 描述 |
-|------|------|--------|------|
-| `drizzle` | `object` | **必需** | 数据库配置对象 |
-| `getTokenFrom` | `GetTokenOptions` | **必需** | 令牌获取方式配置 |
-| `jwtSecret` | `string` | `undefined` | JWT 签名密钥（可选） |
-| `cookieSecret` | `string` | `undefined` | Cookie 签名密钥（可选） |
-| `PublicUrlConfig` | `UrlConfig[]` | `[{url: '*/login', method: 'POST'}, {url: '*/register', method: 'POST'}]` | 公共路由配置 |
-| `verifyAccessTokenOnlyInJWT` | `boolean` | `false` | 仅验证 JWT，不检查数据库 |
-| `userValidation` | `function` | `undefined` | 自定义用户验证函数 |
-| `prefix` | `string` | `'/api/auth'` | 插件路由前缀 |
+| 参数                         | 类型              | 默认值                                                                    | 描述                     |
+| ---------------------------- | ----------------- | ------------------------------------------------------------------------- | ------------------------ |
+| `drizzle`                    | `object`          | **必需**                                                                  | 数据库配置对象           |
+| `getTokenFrom`               | `GetTokenOptions` | **必需**                                                                  | 令牌获取方式配置         |
+| `jwtSecret`                  | `string`          | `undefined`                                                               | JWT 签名密钥（可选）     |
+| `cookieSecret`               | `string`          | `undefined`                                                               | Cookie 签名密钥（可选）  |
+| `PublicUrlConfig`            | `UrlConfig[]`     | `[{url: '*/login', method: 'POST'}, {url: '*/register', method: 'POST'}]` | 公共路由配置             |
+| `verifyAccessTokenOnlyInJWT` | `boolean`         | `false`                                                                   | 仅验证 JWT，不检查数据库 |
+| `userValidation`             | `function`        | `undefined`                                                               | 自定义用户验证函数       |
+
 
 ### GetTokenOptions 配置
 
@@ -439,22 +255,6 @@ const originalValue = await unsignCookie(signedCookie, 'secret')
 // 检查 URL 是否为公共路由
 const isPublic = currentUrlAndMethodIsAllowed('/login', 'POST', publicRoutes)
 ```
-
-## 🧪 测试
-
-运行测试套件：
-
-```bash
-bun test
-```
-
-项目包含完整的测试覆盖：
-- ✅ Cookie 签名和验证
-- ✅ 多种认证方式的令牌提取
-- ✅ URL 和方法验证
-- ✅ JWT 令牌处理
-- ✅ 插件集成测试
-- ✅ 错误处理测试
 
 ## 📝 高级用法
 

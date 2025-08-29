@@ -8,10 +8,10 @@ import { eq } from "drizzle-orm";
 // 导入Elysia自带的错误类型
 import { NotFoundError } from "elysia";
 import jwt from "jsonwebtoken";
-import type { StringValue } from "./authGuard";
-import type { TokenSchema, UserSchema } from "./db/shema";
-import { tokenLogger } from "./logger";
-import type { DrizzleConfig, TokenResult } from "./types";
+import type { StringValue } from "./authGuard.js";
+import type { TokenSchema, UserSchema } from "./db/schema.js";
+import { tokenLogger } from "./logger.js";
+import type { TokenResult } from "./types.js";
 
 /**
  * 创建用户访问令牌和刷新令牌

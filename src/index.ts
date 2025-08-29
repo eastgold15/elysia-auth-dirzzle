@@ -8,61 +8,39 @@
  */
 
 import { ConfigurationError } from "@pori15/elysia-unified-errors";
-import Elysia, { type HTTPMethod } from "elysia";
-import { currentUrlAndMethodIsAllowed } from "./authGuard";
-import type { ORMOptions } from "./config";
-import type { TokenSchema, UserSchema } from "./db/shema";
+import type { HTTPMethod } from "elysia";
+import { Elysia } from "elysia";
+import { currentUrlAndMethodIsAllowed } from "./authGuard.js";
+
 import {
 	checkTokenValidity,
 	getAccessTokenFromRequest,
-} from "./elysia-auth-plugin";
-import type { User } from "./types";
+} from "./elysia-auth-plugin.js";
+import type { ORMOptions } from "./types.js";
 
-// === 统一错误处理导出 ===
-// 直接导出统一错误处理包的所有内容
-export * from "@pori15/elysia-unified-errors";
-export type {
-	StringValue,
-	UrlConfig,
-} from "./authGuard";
-// === 辅助函数导出 ===
-export { currentUrlAndMethodIsAllowed } from "./authGuard";
-// === 类型导出 ===
-export type {
-	GetTokenOptions,
-	ORMOptions,
-} from "./config";
 // === 核心插件导出 ===
 export {
 	checkTokenValidity,
 	getAccessTokenFromRequest,
 	signCookie,
 	unsignCookie,
-} from "./elysia-auth-plugin";
-export type {
-	AuthResult,
-	DrizzleConfig,
-	JWTPayload,
-	TokenResult,
-} from "./types";
+} from "./elysia-auth-plugin.js";
+
 // === 工具函数导出 ===
 export {
 	createUserToken,
 	refreshUserToken,
 	removeAllUserTokens,
 	removeUserToken,
-} from "./utils";
+} from "./utils.js";
 
 /**
  * Elysia 插件主入口，自动注入 isConnected/connectedUser 到 context
  * @param ORMOptions 插件配置
  * @returns Elysia 插件实例
  */
-export const elysiaAuthDrizzlePlugin = <
-	TUserSchema extends UserSchema,
-	TTokenSchema extends TokenSchema,
->(
-	ORMOptions: ORMOptions<TUserSchema, TTokenSchema>,
+export const elysiaAuthDrizzlePlugin = <T extends ORMOptions>(
+	ORMOptions: T,
 ) => {
 	// 拆解必需配置
 	const { drizzle, getTokenFrom } = ORMOptions;
@@ -92,12 +70,12 @@ export const elysiaAuthDrizzlePlugin = <
 		);
 	}
 
-	const plugin = new Elysia({ name: "elysia-auth-drizzle" }).derive(
+	return new Elysia({ name: "elysia-auth-drizzle" }).derive(
 		{ as: "global" },
 		async ({ headers, query, cookie, request }) => {
 			// 初始化登录状态
 			let isConnected = false;
-			let connectedUser: User | undefined;
+			let connectedUser: any | undefined;
 
 			// 构建请求对象
 			const req = {
@@ -132,7 +110,7 @@ export const elysiaAuthDrizzlePlugin = <
 				);
 
 				// 校验 token
-				const authResult = await checkTokenValidity<TUserSchema, TTokenSchema>(
+				const authResult = await checkTokenValidity<T>(
 					jwtSecret,
 					verifyAccessTokenOnlyInJWT,
 					drizzle,
@@ -143,14 +121,19 @@ export const elysiaAuthDrizzlePlugin = <
 					req.cookie,
 				)(tokenValue);
 
-				if (authResult) {
+				// 检查 authResult 是否为 Error 对象
+				if (authResult instanceof Error) {
+					// 处理错误情况
+					console.warn("Token validation error:", authResult.message);
+				} else if (authResult) {
+					// 成功获取用户信息
 					connectedUser = authResult.connectedUser;
 					isConnected = authResult.isConnected;
 				}
 			} catch (error) {
-				throw error;
 				// 日志记录错误，但不抛出，由后续逻辑处理
 				console.warn("Token validation failed:", error);
+				throw error;
 			}
 
 			// 返回登录状态和用户信息
@@ -160,6 +143,4 @@ export const elysiaAuthDrizzlePlugin = <
 			};
 		},
 	);
-
-	return plugin;
 };
