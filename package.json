@@ -53,8 +53,10 @@
 	"dependencies": {
 		"@pori15/elysia-unified-errors": "^1.0.1",
 		"@types/jsonwebtoken": "^9.0.10",
+		"@types/micromatch": "^4.0.9",
 		"jsonwebtoken": "^9.0.2",
-		"logixlysia": "^5.1.1"
+		"logixlysia": "^5.1.1",
+		"micromatch": "^4.0.8"
 	},
 	"devDependencies": {
 		"bun-types": "latest",
